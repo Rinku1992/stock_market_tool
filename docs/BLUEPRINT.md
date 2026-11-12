@@ -4,10 +4,26 @@ Source of truth for what we are building. Update this file when the design chang
 
 ## Goal
 
-Type a stock name (or pick a Zerodha holding) and get a verdict for three horizons:
+Help the owner decide if a given stock is good to invest in or not, for three horizons:
 short (3-5 months), mid (6-12 months), long (2 years).
 
-The benchmark is reliability:
+Reference products: BlackRock Aladdin (portfolio and risk), Bloomberg Terminal and FactSet
+(company research and data). We borrow their structure and features. We cannot match their
+data depth.
+
+### What the product must do
+
+1. **Verdict.** For any stock: consider / avoid / no call for each horizon, with the reasons,
+   the main risks, and what would change the view.
+2. **Company research page.** All key facts in one place: financials, valuation, ownership,
+   news, filings, peers. Each one linked to its source. (FactSet / Bloomberg style)
+3. **Peer and sector comparison.** The stock against its peers and its own history.
+4. **Screening.** Rank the whole universe to find candidates, not only judge one name.
+5. **Portfolio view (Zerodha).** Hold / add / trim / exit for each holding, plus
+   concentration, overlap and "what if" tests such as a 10% market fall. (Aladdin style)
+6. **Monitoring.** Alerts when the conditions behind a view break.
+
+### The benchmark is reliability
 
 - Right numbers. Code computes. The LLM never does maths.
 - Traceable. Every claim links to a source.
