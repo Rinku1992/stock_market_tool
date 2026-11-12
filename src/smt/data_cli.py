@@ -1,0 +1,43 @@
+"""Checks on stored data.
+
+    python -m smt.data_cli gaps INE002A01018 [--pct 20]
+
+`gaps` lists days where the close moved more than --pct percent from the previous close.
+A large one-day drop on a split or bonus date means the prices are NOT adjusted.
+"""
+
+import argparse
+import os
+
+from dotenv import load_dotenv
+
+from smt.data.lake import Lake
+
+
+def find_gaps(lake: Lake, instrument_id: str, pct: float = 20.0) -> list[tuple]:
+    sql = f"""
+        SELECT trade_date, prev_close, close, round((close / prev_close - 1) * 100, 1) AS change_pct
+        FROM (SELECT trade_date, close, lag(close) OVER (ORDER BY trade_date) AS prev_close
+              FROM {lake.read_sql('prices_daily')} WHERE instrument_id = ?)
+        WHERE prev_close IS NOT NULL AND abs(close / prev_close - 1) * 100 > ?
+        ORDER BY trade_date"""
+    return lake.query(sql, [instrument_id, pct])
+
+
+def main(argv: list[str] | None = None) -> None:
+    load_dotenv()
+    p = argparse.ArgumentParser(prog="smt.data_cli")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    g = sub.add_parser("gaps")
+    g.add_argument("isin")
+    g.add_argument("--pct", type=float, default=20.0)
+    args = p.parse_args(argv)
+    rows = find_gaps(Lake(os.environ.get("SMT_LAKE_PATH", "data/lake")), args.isin.upper(), args.pct)
+    if not rows:
+        print(f"No one-day move above {args.pct}% found.")
+    for d, prev, close, chg in rows:
+        print(f"{d}  prev close {prev}  close {close}  change {chg}%")
+
+
+if __name__ == "__main__":
+    main()
