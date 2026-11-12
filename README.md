@@ -26,7 +26,20 @@ always answers "no call". Real analysts come next.
     pytest                    # all tests
     python -m smt.cli RELIANCE
 
+## Kite data (run on your own machine)
+
+Put `KITE_API_KEY` and `KITE_API_SECRET` in `.env`. Never commit them.
+
+    python -m smt.kite_cli login                          # once each day, opens the Zerodha login
+    python -m smt.kite_cli prices RELIANCE INE002A01018   # 5 years of daily prices
+    python -m smt.kite_cli holdings                       # your holdings as of today
+
+The Kite app's redirect URL must be `http://127.0.0.1:8000/kite/callback`.
+The Kite adapter is tested against sample payloads only. It has not yet been run on live data.
+
 ## Layout
+
+    src/smt/sources/      one module per data vendor (kite.py)
 
     src/smt/schema.py     report form every analyst returns
     src/smt/store.py      point-in-time feature store (DuckDB) + LLM call recorder
