@@ -7,6 +7,7 @@ backtested yet, so confidence is capped at UNTESTED_CONFIDENCE and every report 
 from smt import indicators as ind
 from smt.analysts.base import AnalystContext
 from smt.data.prices import Bar, load_bars
+from smt.factors import percentile, universe_scores
 from smt.schema import AnalystKind, AnalystReport, Direction, Evidence, Horizon, HorizonView, neutral_views
 
 UNIT = "market_activity"
@@ -15,6 +16,7 @@ MIN_BARS = 200
 UNTESTED_CONFIDENCE = 0.3
 UNTESTED_NOTE = "direction rule is not backtested yet"
 CRORE = 1e7
+MIN_UNIVERSE = 10
 
 
 def _report(ctx: AnalystContext, analyst_id: str, finding: str, views=None, evidence=None, could_not_check=None) -> AnalystReport:
@@ -122,3 +124,31 @@ def market_beta(ctx: AnalystContext) -> AnalystReport:
     _save(ctx, aid, {"beta_1y": beta, "r2_1y": r2})
     return _report(ctx, aid, f"1-year beta to Nifty 50: {beta:.2f}. The index explains {r2:.0%} of the stock's daily moves.",
                    evidence=_evidence(ctx.instrument_id, bars))
+
+
+def momentum(ctx: AnalystContext) -> AnalystReport:
+    """Risk-adjusted 12-1 momentum, ranked against every loaded stock on the same date.
+
+    Short and mid: top third of the ranking -> positive, bottom third -> negative, else neutral.
+    Long: neutral. Needs at least MIN_UNIVERSE stocks with enough history to rank against.
+    """
+    aid = "momentum"
+    scores = universe_scores(ctx.lake, ctx.as_of) if ctx.lake else {}
+    me = scores.get(ctx.instrument_id) if ctx.instrument_id else None
+    if me is None:
+        return _report(ctx, aid, "Momentum not computed: needs about 13 months of recent daily prices.",
+                       could_not_check=["momentum: not enough recent price history"])
+    pct, rank, n = percentile(scores, ctx.instrument_id)
+    _save(ctx, aid, {"mom_12_1": me["mom_12_1"], "mom_score": me["score"], "mom_percentile": pct})
+    evidence = [Evidence(id=f"prices:{ctx.instrument_id}:{me['last_date']}", source_type="price",
+                         ref=f"prices_daily/{ctx.instrument_id}", as_of=me["last_date"])]
+    finding = (f"12-month return, skipping the last month: {me['mom_12_1']:+.1%}. "
+               f"1-year volatility {me['vol_1y']:.1%}. Risk-adjusted score {me['score']:.2f}.")
+    if n < MIN_UNIVERSE:
+        return _report(ctx, aid, f"{finding} Only {n} stocks loaded to rank against.", evidence=evidence,
+                       could_not_check=[f"momentum rank: only {n} stocks loaded, need {MIN_UNIVERSE}"])
+    finding += f" Rank {rank} of {n} loaded stocks (percentile {pct:.0%})."
+    up, down, size = pct >= 2 / 3, pct <= 1 / 3, (pct - 0.5) * 2 * 0.20
+    views = [_view(Horizon.SHORT, up, down, size), _view(Horizon.MID, up, down, size), _view(Horizon.LONG, False, False, None)]
+    notes = [UNTESTED_NOTE, "rank is against the stocks loaded, not the whole market"]
+    return _report(ctx, aid, finding, views, evidence, notes)

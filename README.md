@@ -44,6 +44,7 @@ The Kite adapter is tested against sample payloads only. It has not yet been run
 
     python -m smt.backtest_cli price_structure INE002A01018 [more ISINs ...]
     python -m smt.backtest_cli price_structure --holdings
+    python -m smt.backtest_cli momentum --holdings
 
 Replays history month by month. Results on one stock are too few to trust.
 

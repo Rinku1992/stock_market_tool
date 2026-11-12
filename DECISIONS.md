@@ -51,6 +51,17 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Parquet file names include what the request was for, not only the raw payload hash.**
   Bug found by a test: two instruments that returned byte-identical payloads overwrote each
   other's file. Real data loaded so far was not affected (RELIANCE and NIFTY 50 payloads differ).
+- **Move from single-stock rules to ranked factors.** Professional systems rank many stocks
+  on factors (momentum, value, quality, volatility) rather than forecast one price. Price
+  forecasting models (ARIMA, LSTM and similar) are not used for direction: on price alone they
+  tend to fit noise. SMA rule stays as a baseline the factors must beat.
+- **Momentum = 12-month return skipping the last month, divided by 1-year volatility.** The skip
+  avoids short-term reversal. Dividing by volatility favours steady risers. One fixed definition,
+  chosen before seeing results, to avoid tuning on the past.
+- **Momentum views by tercile:** top third positive, bottom third negative. Needs at least 10
+  stocks to rank. Stocks with under 13 months of history, or no price in the last 10 days, are
+  left out of the ranking.
+- **Backtest now shows the median as well as the mean**, so a few big moves cannot hide.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

@@ -8,6 +8,7 @@ Only this engine looks forward, and only to score the view.
 """
 
 from collections import defaultdict
+from statistics import median
 from dataclasses import dataclass
 from datetime import date
 
@@ -44,6 +45,7 @@ class Row:
     n: int
     n_stocks: int
     mean_excess: float
+    median_excess: float
     hit_rate: float | None  # share of views that were right. None for neutral and ALL.
 
 
@@ -103,5 +105,6 @@ def summarize(obs: list[Obs]) -> list[Row]:
                 hit = sum(o.excess > 0 for o in g) / len(g)
             elif view == "negative":
                 hit = sum(o.excess < 0 for o in g) / len(g)
-            rows.append(Row(h, view, len(g), len({o.instrument_id for o in g}), sum(o.excess for o in g) / len(g), hit))
+            ex = [o.excess for o in g]
+            rows.append(Row(h, view, len(g), len({o.instrument_id for o in g}), sum(ex) / len(g), median(ex), hit))
     return rows
