@@ -48,6 +48,9 @@ Newest at the bottom. One entry per choice, with the reason.
   A view is only useful if it beats the baseline, and small samples must not be trusted.
 - **Known gaps in the backtest:** no dividends, no trading costs, and the stock list is chosen
   today (survivorship bias) until index membership history is loaded.
+- **Parquet file names include what the request was for, not only the raw payload hash.**
+  Bug found by a test: two instruments that returned byte-identical payloads overwrote each
+  other's file. Real data loaded so far was not affected (RELIANCE and NIFTY 50 payloads differ).
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

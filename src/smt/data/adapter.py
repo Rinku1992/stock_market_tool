@@ -5,6 +5,7 @@ parse() is pure: raw bytes in, contract table out. Keeping them apart means a pa
 fix can be re-run over stored raw files without calling the vendor again.
 """
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
@@ -39,6 +40,10 @@ def _to_table(adapter: SourceAdapter, rows: list[dict], raw_sha256: str, ingeste
     return pa.Table.from_pylist(full)
 
 
+def _tag(adapter: SourceAdapter) -> str:
+    return json.dumps(getattr(adapter, "context", {}), sort_keys=True, default=str)
+
+
 def ingest(adapter: SourceAdapter, lake: Lake, **params) -> list[Path]:
     """fetch -> keep raw -> parse -> validate -> write canonical."""
     now = datetime.now(timezone.utc)
@@ -46,11 +51,11 @@ def ingest(adapter: SourceAdapter, lake: Lake, **params) -> list[Path]:
     # what was asked for goes in the manifest, so a raw file can be understood and re-parsed later
     meta = {**getattr(adapter, "context", {}), **params}
     ref = lake.save_raw(adapter.name, adapter.dataset, payload, adapter.raw_ext, now, meta)
-    return lake.write(adapter.dataset, _to_table(adapter, adapter.parse(payload), ref.sha256, now))
+    return lake.write(adapter.dataset, _to_table(adapter, adapter.parse(payload), ref.sha256, now), _tag(adapter))
 
 
 def reparse(adapter: SourceAdapter, lake: Lake, raw_path: Path) -> list[Path]:
     """Run the parser again over a stored raw file. No network call."""
     payload = Lake.load_raw(raw_path)
     sha = Path(raw_path).name.split(".")[0]
-    return lake.write(adapter.dataset, _to_table(adapter, adapter.parse(payload), sha, datetime.now(timezone.utc)))
+    return lake.write(adapter.dataset, _to_table(adapter, adapter.parse(payload), sha, datetime.now(timezone.utc)), _tag(adapter))

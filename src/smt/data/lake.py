@@ -60,13 +60,18 @@ class Lake:
         ds = DATASETS[dataset]
         return self.canonical / ds.name / f"v{ds.version}"
 
-    def write(self, dataset: str, table: pa.Table) -> list[Path]:
-        """Validate, then write. Re-parsing the same raw payload replaces its own files."""
+    def write(self, dataset: str, table: pa.Table, batch_tag: str = "") -> list[Path]:
+        """Validate, then write. Re-parsing the same raw payload replaces its own files.
+
+        batch_tag says what the payload was for (for example which instrument). Two requests can
+        return byte-identical payloads, and without the tag one would overwrite the other.
+        """
         ds = DATASETS[dataset]
         table = conform(table, ds)
         if table.num_rows == 0:
             return []
-        batch = hashlib.sha256("|".join(sorted(pc.unique(table["raw_sha256"]).to_pylist())).encode()).hexdigest()[:16]
+        ident = "|".join(sorted(pc.unique(table["raw_sha256"]).to_pylist())) + "#" + batch_tag
+        batch = hashlib.sha256(ident.encode()).hexdigest()[:16]
         parts: list[tuple[Path, pa.Table]] = []
         if ds.partition_by:
             years = pc.year(table[ds.partition_by])
