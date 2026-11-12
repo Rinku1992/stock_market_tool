@@ -73,6 +73,7 @@ def test_http_error_is_raised():
 def test_prices_parse_to_contract_rows():
     rows = KiteDailyPrices(None, ISIN, "NSE", 738561).parse(CANDLES)
     assert rows[0]["trade_date"] == date(2026, 11, 9) and rows[0]["close"] == 1510.25
+    assert rows[0]["price_basis"] == "adjusted"
     assert rows[0]["published_at"] == datetime(2026, 11, 9, 10, 0, tzinfo=timezone.utc)
 
 

@@ -18,7 +18,7 @@ Code: `src/smt/data/contract.py`. This page explains the choices.
 | `published_at` on every row | Backtests only see what was known on that date |
 | ISIN as the id, not the symbol | Symbols get renamed. `IDX:<NAME>` is used for indices |
 | INR in absolute rupees, timestamps in UTC | No lakh/crore or time zone mix-ups between vendors |
-| Prices stored as traded, not adjusted | Vendors adjust differently. We compute adjustment ourselves from corporate actions |
+| Every price row says if it is `adjusted` or `as_traded` | Vendors differ. Kite sends adjusted prices (checked on live data). Mixing the two silently would corrupt returns and valuation |
 | Financials in tall format (one row per line item) | A new line item is a new row, not a schema change |
 | fetch and parse are separate steps | Parsing can be re-run offline and unit tested without a network |
 | Validation gate before storage | Bad vendor data is rejected and never mixes with good data |
@@ -39,7 +39,7 @@ Code: `src/smt/data/contract.py`. This page explains the choices.
 | Dataset | Key | Notes |
 |---|---|---|
 | `instruments` | instrument_id, exchange, valid_from | Symbol history |
-| `prices_daily` | instrument_id, exchange, trade_date | Equities and indices, unadjusted |
+| `prices_daily` | instrument_id, exchange, trade_date | Equities and indices. `price_basis` column: adjusted or as_traded. Schema v2 |
 | `corporate_actions` | instrument_id, ex_date, action_type | Split, bonus, dividend, buyback, rights, demerger, merger |
 | `financials` | instrument_id, period_end, period_type, statement, consolidated, line_item, published_at | Tall format |
 | `shareholding` | instrument_id, period_end, holder_category, published_at | Includes pledge |

@@ -25,6 +25,12 @@ Newest at the bottom. One entry per choice, with the reason.
   adapters, so changing vendor changes one file. Details in docs/DATA_CONTRACT.md.
 - **ISIN as instrument id, prices stored unadjusted, financials in tall format, rows
   append-only.** Each choice removes a known cause of data rework.
+- **prices_daily v2: added `price_basis` (adjusted / as_traded).** Live check on RELIANCE
+  showed Kite day candles are already adjusted for bonus, so the first idea (store as-traded
+  and adjust ourselves) does not fit Kite. Adjusted prices are right for returns and trend
+  work. Known cost: Kite rewrites past prices after each new split or bonus, so that stock's
+  full history must be re-pulled then. Valuation at a past date must use per-share numbers
+  on the same basis.
 - **Paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

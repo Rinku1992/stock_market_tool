@@ -23,7 +23,7 @@ def _lineage(version=1, published_at=PUB):
 
 def _price(d=date(2026, 11, 2), **over):
     row = {"instrument_id": ISIN, "exchange": "NSE", "trade_date": d, "open": 100.0, "high": 110.0,
-           "low": 95.0, "close": 105.0, "volume": 1000, **_lineage()}
+           "low": 95.0, "close": 105.0, "volume": 1000, "price_basis": "adjusted", **_lineage(version=2)}
     row.update(over)
     return row
 
@@ -101,7 +101,7 @@ class CsvPrices:
         out = []
         for r in csv.DictReader(io.StringIO(payload.decode())):
             d = date.fromisoformat(r["Date"])
-            out.append({"instrument_id": r["ISIN"], "exchange": "NSE", "trade_date": d, "open": float(r["O"]),
+            out.append({"instrument_id": r["ISIN"], "exchange": "NSE", "trade_date": d, "price_basis": "as_traded", "open": float(r["O"]),
                         "high": float(r["H"]), "low": float(r["L"]), "close": float(r["C"]), "volume": int(r["Vol"]),
                         "published_at": datetime(d.year, d.month, d.day, 10, 0, tzinfo=UTC)})
         return out

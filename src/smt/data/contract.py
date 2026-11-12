@@ -44,6 +44,9 @@ class Dataset:
 
 
 INSTRUMENT_TYPES = frozenset({"equity", "index"})
+# "adjusted": the source rewrote past prices for splits/bonus (good for returns, but old values
+# change after each new corporate action). "as_traded": the price that was really printed that day.
+PRICE_BASES = frozenset({"adjusted", "as_traded"})
 ACTION_TYPES = frozenset({"split", "bonus", "dividend", "buyback", "rights", "demerger", "merger", "other"})
 PERIOD_TYPES = frozenset({"Q", "A"})
 STATEMENTS = frozenset({"pl", "bs", "cf"})
@@ -70,12 +73,13 @@ INSTRUMENTS = Dataset(
 
 PRICES_DAILY = Dataset(
     name="prices_daily",
-    version=1,
+    version=2,
     fields=(
         _f("instrument_id", pa.string()),
         _f("exchange", pa.string()),
         _f("trade_date", pa.date32()),
-        # As traded, NOT adjusted. Adjustment is computed from corporate_actions.
+        # Whether these prices were adjusted by the source for splits/bonus. See PRICE_BASES.
+        _f("price_basis", pa.string()),
         _f("open", pa.float64()),
         _f("high", pa.float64()),
         _f("low", pa.float64()),
@@ -84,6 +88,7 @@ PRICES_DAILY = Dataset(
     ),
     key=("instrument_id", "exchange", "trade_date"),
     partition_by="trade_date",
+    enums=(("price_basis", PRICE_BASES),),
 )
 
 CORPORATE_ACTIONS = Dataset(

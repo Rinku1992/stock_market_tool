@@ -10,9 +10,9 @@ UTC = timezone.utc
 
 def _row(d, close):
     return {"instrument_id": "X", "exchange": "NSE", "trade_date": d, "open": close, "high": close, "low": close,
-            "close": close, "volume": 1, "source": "t", "source_ref": None,
+            "close": close, "volume": 1, "price_basis": "as_traded", "source": "t", "source_ref": None,
             "published_at": datetime(d.year, d.month, d.day, 10, tzinfo=UTC),
-            "ingested_at": datetime(2026, 11, 12, tzinfo=UTC), "raw_sha256": "a", "schema_version": 1}
+            "ingested_at": datetime(2026, 11, 12, tzinfo=UTC), "raw_sha256": "a", "schema_version": 2}
 
 
 def test_gaps_finds_an_unadjusted_bonus_drop(tmp_path):

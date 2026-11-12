@@ -2,10 +2,10 @@
 
 Built from the public API docs (https://kite.trade/docs/connect/v3/).
 
-OPEN QUESTION, to be settled on real data by the data office: our contract stores prices
-"as traded". It is not yet confirmed whether Kite's day candles are adjusted for splits
-and bonus issues. Until that is checked against a known split, treat these prices as
-unverified for any period that contains a corporate action.
+Checked on live data (2026-11-12, RELIANCE, 5 years): Kite's day candles are ADJUSTED for
+bonus issues. There was no large one-day gap in the whole series. So rows are stored with
+price_basis = "adjusted". Consequence: after any new split or bonus, Kite rewrites the past,
+so the full history of that stock must be pulled again. Not yet checked: dividends.
 """
 
 import csv
@@ -126,7 +126,7 @@ class KiteDailyPrices:
             d = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").astimezone(IST).date()
             rows.append({
                 "instrument_id": self.instrument_id, "exchange": self.exchange, "trade_date": d,
-                "open": float(o), "high": float(h), "low": float(l), "close": float(c), "volume": int(v),
+                "price_basis": "adjusted", "open": float(o), "high": float(h), "low": float(l), "close": float(c), "volume": int(v),
                 # a day candle is final at market close, 15:30 IST = 10:00 UTC
                 "published_at": datetime(d.year, d.month, d.day, 10, 0, tzinfo=UTC),
                 "source_ref": str(self.instrument_token),
