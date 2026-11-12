@@ -97,4 +97,6 @@ sentinel (C), depth controller (C)
 
 ## Defaults in use
 
-Free data sources first. Runs on a laptop. Universe: Nifty 100.
+Paid, licensed data through API keys only. No scrapers and no unofficial wrappers
+(this rules out Moneycontrol, which has no official API). Vendor choice is open.
+Runs on a laptop. Universe: Nifty 100.

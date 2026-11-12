@@ -18,4 +18,7 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Report schema rejects directional views without evidence, and evidence dated after
   `as_of`.** The rule is enforced in code, not left to prompts.
 - **Data grade C stops the run.** No verdict on bad data.
-- **Defaults:** free data sources, laptop, Nifty 100.
+- **Defaults:** laptop, Nifty 100.
+- **Paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
+  Scraped data breaks without notice and has no point-in-time history, which goes against
+  the reliability benchmark. Vendor not chosen yet.
