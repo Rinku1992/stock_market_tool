@@ -1,0 +1,1 @@
+"""Stock market research engine."""
