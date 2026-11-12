@@ -1,0 +1,54 @@
+"""Backtest an analyst's views on stored prices.
+
+    python -m smt.backtest_cli price_structure INE002A01018 [more ISINs ...]
+
+Load prices for every stock and for the index first (python -m smt.kite_cli prices ...).
+"""
+
+import argparse
+import os
+
+from dotenv import load_dotenv
+
+from smt.analysts.market_activity import price_structure
+from smt.backtest import FWD_DAYS, MIN_TRUSTED_N, run_backtest, summarize
+from smt.data.lake import Lake
+
+ANALYSTS = {"price_structure": price_structure}
+
+
+def main(argv: list[str] | None = None) -> None:
+    load_dotenv()
+    p = argparse.ArgumentParser(prog="smt.backtest_cli")
+    p.add_argument("analyst", choices=sorted(ANALYSTS))
+    p.add_argument("isins", nargs="+")
+    args = p.parse_args(argv)
+    ids = [i.upper() for i in args.isins]
+    obs = run_backtest(Lake(os.environ.get("SMT_LAKE_PATH", "data/lake")), ids, ANALYSTS[args.analyst])
+    if not obs:
+        print("No views could be scored. Check that prices are loaded for the stocks and the index.")
+        return
+    dates = sorted({o.as_of for o in obs})
+    print(f"\nBacktest: {args.analyst} | {len(ids)} stock(s) | monthly, {dates[0]} to {dates[-1]}")
+    print("Scored on return versus Nifty 50 after "
+          + ", ".join(f"{FWD_DAYS[h]} trading days ({h.value})" for h in FWD_DAYS) + "\n")
+    print(f"{'horizon':8} {'view':9} {'n':>5} {'stocks':>6} {'mean excess':>12} {'hit rate':>9}")
+    small = False
+    for r in summarize(obs):
+        hit = "-" if r.hit_rate is None else f"{r.hit_rate:.0%}"
+        flag = ""
+        if r.view != "ALL" and r.n < MIN_TRUSTED_N:
+            flag, small = " *", True
+        print(f"{r.horizon.value:8} {r.view:9} {r.n:>5} {r.n_stocks:>6} {r.mean_excess:>+12.1%} {hit:>9}{flag}")
+    print("\nHow to read this")
+    print("- mean excess: average return of the stock minus the Nifty 50 after the view was given.")
+    print("- hit rate: share of positive views that beat the index, or negative views that lagged it.")
+    print("- ALL: every scored date, whatever the view. A view is only useful if it does better than ALL.")
+    if small:
+        print(f"- * fewer than {MIN_TRUSTED_N} cases. Too few to trust.")
+    print("- Monthly views overlap in time, so the true number of independent cases is smaller than n.")
+    print("- Prices are adjusted and exclude dividends. No trading costs are included.")
+
+
+if __name__ == "__main__":
+    main()

@@ -108,7 +108,8 @@ sentinel (C), depth controller (C)
 | 1c. Data office | Fundamentals adapter, corporate action fix, reconciler, data grade | 5 test stocks load with a grade | Needs a fundamentals vendor |
 | 2a. Price analysts | Price structure, liquidity, market beta (rules not backtested, confidence capped) | Reports for RELIANCE on live data | Built, awaiting live run |
 | 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Needs a fundamentals vendor |
-| 3. Engines | Scoring engine, backtest engine | A backtest runs on code features | |
+| 3a. Backtest engine | Monthly point-in-time replay, scored on return versus Nifty 50 | Runs on live prices | Built. Only meaningful once many stocks are loaded |
+| 3b. Scoring engine | Turns analyst views into a verdict, using weights that backtests support | First real verdict | Needs 3a results on many stocks |
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |
 | 5. Review + verdict | Review unit, three horizon committees | One full verdict page | |
 | 6. Zerodha | Holdings pull, portfolio desk, sentinel | Holdings show hold/add/trim/exit | |
@@ -116,6 +117,9 @@ sentinel (C), depth controller (C)
 
 ## Defaults in use
 
-Paid, licensed data through API keys only. No scrapers and no unofficial wrappers
-(this rules out Moneycontrol, which has no official API). Vendor choice is open.
+Data sources allowed (owner's call, 2026-11-12): paid licensed APIs; official public sources
+(NSE and BSE filings, company investor pages, rating agency notes); and other sites only where
+their terms allow automated access. No getting around logins, paywalls or anti-bot blocks, and
+no unofficial API wrappers. Collected data carries a lower trust tag and is cross-checked.
+Fundamentals vendor choice is still open.
 Runs on a laptop. Universe: Nifty 100.

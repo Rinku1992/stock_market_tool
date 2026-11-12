@@ -6,7 +6,11 @@ Read `docs/BLUEPRINT.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They
 
 1. Never read, print, commit or upload `.env`, `data/.kite_token.json`, or any key or token.
 2. Never place, modify or cancel orders. Kite is used read-only.
-3. Paid, licensed data sources only. No scrapers and no unofficial API wrappers.
+3. Data sources allowed: paid licensed APIs; official public sources (NSE and BSE filings, company
+   investor pages, rating agency notes); and other sites only if their terms allow automated access.
+   Check the terms and robots.txt before automating a site, and note the check in `DECISIONS.md`.
+   Never get around a login, paywall or anti-bot block. No unofficial API wrappers.
+   Collected data gets a lower trust tag and must be cross-checked before it can move a verdict.
 4. Only `src/smt/graph.py` may import LangGraph. Analysts are plain functions.
 5. All LLM calls go through `src/smt/llm.py`.
 6. All data enters through an adapter and the contract in `src/smt/data/contract.py`.

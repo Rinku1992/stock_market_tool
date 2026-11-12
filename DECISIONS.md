@@ -38,6 +38,16 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Liquidity and market beta report facts only, with neutral views.** They are context
   and constraints, not buy or sell signals.
 - **Price trend gives no view for the 2-year horizon.** Trend alone says little that far out.
-- **Paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
+- **Data policy widened (owner's call).** Allowed: paid licensed APIs, official public sources,
+  and other sites whose terms allow automated access. Not allowed: getting around logins or
+  anti-bot blocks, unofficial API wrappers. This replaces the earlier "paid only" rule.
+- **Backtest scores a view by return versus Nifty 50**, after 84 / 189 / 500 trading days for the
+  short / mid / long horizon. Evaluated monthly. Raw return would reward any view in a rising
+  market, so excess return is the fair test.
+- **Backtest shows an ALL row as the baseline, and flags cells with fewer than 30 cases.**
+  A view is only useful if it beats the baseline, and small samples must not be trusted.
+- **Known gaps in the backtest:** no dividends, no trading costs, and the stock list is chosen
+  today (survivorship bias) until index membership history is loaded.
+- **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.
