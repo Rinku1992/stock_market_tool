@@ -35,6 +35,7 @@ Put `KITE_API_KEY` and `KITE_API_SECRET` in `.env`. Never commit them.
     python -m smt.kite_cli prices RELIANCE INE002A01018   # 5 years of daily prices
     python -m smt.kite_cli prices "NIFTY 50" IDX:NIFTY50  # the index, for strength versus market
     python -m smt.kite_cli holdings                       # your holdings as of today
+    python -m smt.kite_cli prices-holdings                # 5 years of prices for every holding
 
 The Kite app's redirect URL must be `http://127.0.0.1:8000/kite/callback`.
 The Kite adapter is tested against sample payloads only. It has not yet been run on live data.
@@ -42,6 +43,7 @@ The Kite adapter is tested against sample payloads only. It has not yet been run
 ## Backtest
 
     python -m smt.backtest_cli price_structure INE002A01018 [more ISINs ...]
+    python -m smt.backtest_cli price_structure --holdings
 
 Replays history month by month. Results on one stock are too few to trust.
 

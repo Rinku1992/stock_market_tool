@@ -3,6 +3,7 @@
     python -m smt.kite_cli login
     python -m smt.kite_cli prices RELIANCE INE002A01018 [--from 2021-01-01] [--to 2026-11-11]
     python -m smt.kite_cli holdings [--account main]
+    python -m smt.kite_cli prices-holdings [--account main]
 
 Reads KITE_API_KEY and KITE_API_SECRET from .env. Run `login` once each day.
 """
@@ -19,12 +20,15 @@ from urllib.parse import parse_qs, urlparse
 from dotenv import load_dotenv
 
 from smt.data.adapter import ingest
+from smt.data.holdings import latest_holdings
 from smt.data.lake import Lake
-from smt.sources.kite import IST, KiteClient, KiteDailyPrices, KiteHoldings, find_instrument_token, load_token, login_url, save_token
+from smt.sources.kite import (IST, KiteClient, KiteDailyPrices, KiteError, KiteHoldings, find_instrument_token,
+                              load_token, login_url, save_token)
 
 CALLBACK_HOST, CALLBACK_PORT, CALLBACK_PATH = "127.0.0.1", 8000, "/kite/callback"
 CHUNK_DAYS = 365  # days per request. Kept small on purpose; raise it once the real limit is confirmed.
 PAUSE = 0.4  # seconds between calls, to stay under the documented 3 requests per second
+EXCHANGES = ("NSE", "BSE")
 
 
 def _env(name: str) -> str:
@@ -32,6 +36,10 @@ def _env(name: str) -> str:
     if not v:
         sys.exit(f"{name} is not set. Add it to your .env file.")
     return v
+
+
+def _lake() -> Lake:
+    return Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
 
 
 def _token_path() -> str:
@@ -70,6 +78,28 @@ def _wait_for_request_token() -> str:
     return got["token"]
 
 
+def _instrument_dump(client: KiteClient, lake: Lake, exchange: str) -> bytes:
+    dump = client.get(f"/instruments/{exchange}")
+    lake.save_raw("kite", "instruments_dump", dump, "csv")
+    return dump
+
+
+def load_prices(client: KiteClient, lake: Lake, dump: bytes, symbol: str, instrument_id: str, exchange: str,
+                start: date, end: date, verbose: bool = True, pause: float = PAUSE) -> int:
+    """Pull daily prices for one instrument in yearly chunks. Returns the number of files written."""
+    token = find_instrument_token(dump, symbol, exchange)
+    adapter = KiteDailyPrices(client, instrument_id, exchange, token)
+    files = 0
+    while start <= end:
+        stop = min(start + timedelta(days=CHUNK_DAYS - 1), end)
+        files += len(ingest(adapter, lake, start=start, end=stop))
+        if verbose:
+            print(f"  {start} to {stop} ok")
+        start = stop + timedelta(days=1)
+        time.sleep(pause)
+    return files
+
+
 def cmd_login(args) -> None:
     api_key, api_secret = _env("KITE_API_KEY"), _env("KITE_API_SECRET")
     url = login_url(api_key)
@@ -81,28 +111,50 @@ def cmd_login(args) -> None:
 
 
 def cmd_prices(args) -> None:
-    client, lake = _client(), Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
-    dump = client.get(f"/instruments/{args.exchange}")
-    lake.save_raw("kite", "instruments_dump", dump, "csv")
-    token = find_instrument_token(dump, args.symbol.upper(), args.exchange)
-    adapter = KiteDailyPrices(client, args.isin.upper(), args.exchange, token)
-    start, end, files = args.start, args.end, 0
-    while start <= end:
-        stop = min(start + timedelta(days=CHUNK_DAYS - 1), end)
-        files += len(ingest(adapter, lake, start=start, end=stop))
-        print(f"  {start} to {stop} ok")
-        start = stop + timedelta(days=1)
-        time.sleep(PAUSE)
-    n = lake.query(f"SELECT count(*), min(trade_date), max(trade_date) FROM {lake.read_sql('prices_daily')} WHERE instrument_id = ?", [args.isin.upper()])[0]
+    client, lake = _client(), _lake()
+    isin = args.isin.upper()
+    files = load_prices(client, lake, _instrument_dump(client, lake, args.exchange), args.symbol.upper(), isin,
+                        args.exchange, args.start, args.end)
+    n = lake.query(f"SELECT count(*), min(trade_date), max(trade_date) FROM {lake.read_sql('prices_daily')} WHERE instrument_id = ?", [isin])[0]
     print(f"{args.symbol.upper()}: {n[0]} daily rows stored, {n[1]} to {n[2]} ({files} files written)")
 
 
 def cmd_holdings(args) -> None:
-    lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
+    lake = _lake()
     today = datetime.now(IST).date()
     ingest(KiteHoldings(_client(), args.account, today), lake)
     n = lake.query(f"SELECT count(*) FROM {lake.read_sql('holdings')} WHERE as_of = ? AND account = ?", [today, args.account])[0][0]
     print(f"{n} holdings stored for {today}")
+
+
+def load_prices_for_holdings(client: KiteClient, lake: Lake, account: str, start: date, end: date,
+                             pause: float = PAUSE) -> tuple[int, list[str]]:
+    """Pull prices for every stored holding. Returns (number loaded, symbols that failed)."""
+    held = latest_holdings(lake, account)
+    dumps = {ex: _instrument_dump(client, lake, ex) for ex in EXCHANGES}
+    done, failed = 0, []
+    for k, (isin, symbol) in enumerate(held, 1):
+        ok = False
+        for ex in EXCHANGES:  # try NSE first, then BSE
+            try:
+                load_prices(client, lake, dumps[ex], symbol or "", isin, ex, start, end, verbose=False, pause=pause)
+                ok = True
+                break
+            except KiteError:
+                continue
+        done += ok
+        if not ok:
+            failed.append(symbol or isin)
+        print(f"  {k}/{len(held)} {'ok' if ok else 'FAILED'}")
+    return done, failed
+
+
+def cmd_prices_holdings(args) -> None:
+    client, lake = _client(), _lake()
+    if not latest_holdings(lake, args.account):
+        sys.exit("No holdings stored. Run: python -m smt.kite_cli holdings")
+    done, failed = load_prices_for_holdings(client, lake, args.account, args.start, args.end)
+    print(f"Prices loaded for {done} holdings. Failed: {len(failed)}" + (f" ({', '.join(failed)})" if failed else ""))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -111,16 +163,24 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="smt.kite_cli")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("login").set_defaults(fn=cmd_login)
+
+    def dates(sp):
+        sp.add_argument("--from", dest="start", type=date.fromisoformat, default=yesterday - timedelta(days=5 * 365))
+        sp.add_argument("--to", dest="end", type=date.fromisoformat, default=yesterday)
+
     pr = sub.add_parser("prices")
     pr.add_argument("symbol")
     pr.add_argument("isin")
     pr.add_argument("--exchange", default="NSE")
-    pr.add_argument("--from", dest="start", type=date.fromisoformat, default=yesterday - timedelta(days=5 * 365))
-    pr.add_argument("--to", dest="end", type=date.fromisoformat, default=yesterday)
+    dates(pr)
     pr.set_defaults(fn=cmd_prices)
     ho = sub.add_parser("holdings")
     ho.add_argument("--account", default="main")
     ho.set_defaults(fn=cmd_holdings)
+    ph = sub.add_parser("prices-holdings")
+    ph.add_argument("--account", default="main")
+    dates(ph)
+    ph.set_defaults(fn=cmd_prices_holdings)
     args = p.parse_args(argv)
     args.fn(args)
 

@@ -1,6 +1,7 @@
 """Backtest an analyst's views on stored prices.
 
     python -m smt.backtest_cli price_structure INE002A01018 [more ISINs ...]
+    python -m smt.backtest_cli price_structure --holdings
 
 Load prices for every stock and for the index first (python -m smt.kite_cli prices ...).
 """
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 
 from smt.analysts.market_activity import price_structure
 from smt.backtest import FWD_DAYS, MIN_TRUSTED_N, run_backtest, summarize
+from smt.data.holdings import latest_holdings
 from smt.data.lake import Lake
 
 ANALYSTS = {"price_structure": price_structure}
@@ -21,10 +23,17 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     p = argparse.ArgumentParser(prog="smt.backtest_cli")
     p.add_argument("analyst", choices=sorted(ANALYSTS))
-    p.add_argument("isins", nargs="+")
+    p.add_argument("isins", nargs="*")
+    p.add_argument("--holdings", action="store_true", help="use every stock in your stored holdings")
+    p.add_argument("--account", default="main")
     args = p.parse_args(argv)
+    lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
     ids = [i.upper() for i in args.isins]
-    obs = run_backtest(Lake(os.environ.get("SMT_LAKE_PATH", "data/lake")), ids, ANALYSTS[args.analyst])
+    if args.holdings:
+        ids += [i for i, _ in latest_holdings(lake, args.account) if i not in ids]
+    if not ids:
+        p.error("give at least one ISIN, or use --holdings")
+    obs = run_backtest(lake, ids, ANALYSTS[args.analyst])
     if not obs:
         print("No views could be scored. Check that prices are loaded for the stocks and the index.")
         return
@@ -48,6 +57,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"- * fewer than {MIN_TRUSTED_N} cases. Too few to trust.")
     print("- Monthly views overlap in time, so the true number of independent cases is smaller than n.")
     print("- Prices are adjusted and exclude dividends. No trading costs are included.")
+    if args.holdings:
+        print("- These are stocks you chose to own. That is a biased sample, not the whole market.")
 
 
 if __name__ == "__main__":

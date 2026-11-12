@@ -98,3 +98,29 @@ def test_holdings_ingest_skips_zero_quantity(tmp_path):
     ingest(adapter, lake)
     rows = lake.query(f"SELECT instrument_id, quantity, avg_price FROM {lake.read_sql('holdings')}")
     assert rows == [(ISIN, 12.0, 1400.5)]
+
+
+def test_prices_for_all_holdings_tries_bse_and_reports_failures(tmp_path):
+    from smt.kite_cli import load_prices_for_holdings
+
+    nse = DUMP.split(b"\n")[0] + b"\n738561,2885,RELIANCE,RELIANCE INDUSTRIES,0,,0,0.1,1,EQ,NSE,NSE\n"
+    bse = DUMP.split(b"\n")[0] + b"\n999,1,ONLYBSE,ONLY ON BSE,0,,0,0.05,1,EQ,BSE,BSE\n"
+    held = json.dumps({"status": "success", "data": [
+        {"tradingsymbol": "RELIANCE", "isin": ISIN, "quantity": 1, "t1_quantity": 0, "average_price": 1.0},
+        {"tradingsymbol": "ONLYBSE", "isin": "INE111111111", "quantity": 1, "t1_quantity": 0, "average_price": 1.0},
+        {"tradingsymbol": "GONE", "isin": "INE222222222", "quantity": 1, "t1_quantity": 0, "average_price": 1.0},
+    ]}).encode()
+
+    def handler(req):
+        if req.url.path == "/instruments/NSE":
+            return httpx.Response(200, content=nse)
+        if req.url.path == "/instruments/BSE":
+            return httpx.Response(200, content=bse)
+        return httpx.Response(200, content=CANDLES)
+
+    lake, client = Lake(tmp_path), _client(handler)
+    ingest(KiteHoldings(_client(lambda r: httpx.Response(200, content=held)), "main", date(2026, 11, 11)), lake)
+    done, failed = load_prices_for_holdings(client, lake, "main", date(2026, 11, 9), date(2026, 11, 10), pause=0)
+    assert (done, failed) == (2, ["GONE"])
+    got = lake.query(f"SELECT DISTINCT instrument_id, exchange FROM {lake.read_sql('prices_daily')} ORDER BY 1")
+    assert got == [(ISIN, "NSE"), ("INE111111111", "BSE")]
