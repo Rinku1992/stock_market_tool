@@ -4,6 +4,7 @@
     python -m smt.kite_cli prices RELIANCE INE002A01018 [--from 2021-01-01] [--to 2026-11-11]
     python -m smt.kite_cli holdings [--account main]
     python -m smt.kite_cli prices-holdings [--account main]
+    python -m smt.kite_cli prices-index [--index IDX:NIFTY100]
 
 Reads KITE_API_KEY and KITE_API_SECRET from .env. Run `login` once each day.
 """
@@ -22,6 +23,7 @@ from dotenv import load_dotenv
 from smt.data.adapter import ingest
 from smt.data.holdings import latest_holdings
 from smt.data.lake import Lake
+from smt.data.members import index_members
 from smt.sources.kite import (IST, KiteClient, KiteDailyPrices, KiteError, KiteHoldings, find_instrument_token,
                               load_token, login_url, save_token)
 
@@ -130,7 +132,12 @@ def cmd_holdings(args) -> None:
 def load_prices_for_holdings(client: KiteClient, lake: Lake, account: str, start: date, end: date,
                              pause: float = PAUSE) -> tuple[int, list[str]]:
     """Pull prices for every stored holding. Returns (number loaded, symbols that failed)."""
-    held = latest_holdings(lake, account)
+    return load_prices_for(client, lake, latest_holdings(lake, account), start, end, pause)
+
+
+def load_prices_for(client: KiteClient, lake: Lake, held: list[tuple[str, str | None]], start: date, end: date,
+                    pause: float = PAUSE) -> tuple[int, list[str]]:
+    """Pull prices for a list of (ISIN, symbol). Returns (number loaded, symbols that failed)."""
     dumps = {ex: _instrument_dump(client, lake, ex) for ex in EXCHANGES}
     done, failed = 0, []
     for k, (isin, symbol) in enumerate(held, 1):
@@ -157,6 +164,15 @@ def cmd_prices_holdings(args) -> None:
     print(f"Prices loaded for {done} holdings. Failed: {len(failed)}" + (f" ({', '.join(failed)})" if failed else ""))
 
 
+def cmd_prices_index(args) -> None:
+    client, lake = _client(), _lake()
+    members = index_members(lake, args.index)
+    if not members:
+        sys.exit(f"No member list stored for {args.index}. Run: python -m smt.data_cli index-list <file>")
+    done, failed = load_prices_for(client, lake, members, args.start, args.end)
+    print(f"Prices loaded for {done} of {len(members)} members. Failed: {len(failed)}" + (f" ({', '.join(failed)})" if failed else ""))
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     yesterday = datetime.now(IST).date() - timedelta(days=1)  # today's candle is not final until close
@@ -181,6 +197,10 @@ def main(argv: list[str] | None = None) -> None:
     ph.add_argument("--account", default="main")
     dates(ph)
     ph.set_defaults(fn=cmd_prices_holdings)
+    pi = sub.add_parser("prices-index")
+    pi.add_argument("--index", default="IDX:NIFTY100")
+    dates(pi)
+    pi.set_defaults(fn=cmd_prices_index)
     args = p.parse_args(argv)
     args.fn(args)
 

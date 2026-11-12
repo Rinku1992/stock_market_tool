@@ -2,6 +2,7 @@
 
     python -m smt.backtest_cli price_structure INE002A01018 [more ISINs ...]
     python -m smt.backtest_cli price_structure --holdings
+    python -m smt.backtest_cli momentum --index IDX:NIFTY100
 
 Load prices for every stock and for the index first (python -m smt.kite_cli prices ...).
 """
@@ -15,6 +16,7 @@ from smt.analysts.market_activity import momentum, price_structure
 from smt.backtest import FWD_DAYS, MIN_TRUSTED_N, run_backtest, summarize
 from smt.data.holdings import latest_holdings
 from smt.data.lake import Lake
+from smt.data.members import index_members
 
 ANALYSTS = {"momentum": momentum, "price_structure": price_structure}
 
@@ -26,13 +28,16 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("isins", nargs="*")
     p.add_argument("--holdings", action="store_true", help="use every stock in your stored holdings")
     p.add_argument("--account", default="main")
+    p.add_argument("--index", help="use every stored member of this index, e.g. IDX:NIFTY100")
     args = p.parse_args(argv)
     lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
     ids = [i.upper() for i in args.isins]
     if args.holdings:
         ids += [i for i, _ in latest_holdings(lake, args.account) if i not in ids]
+    if args.index:
+        ids += [i for i, _ in index_members(lake, args.index) if i not in ids]
     if not ids:
-        p.error("give at least one ISIN, or use --holdings")
+        p.error("give at least one ISIN, or use --holdings or --index")
     obs = run_backtest(lake, ids, ANALYSTS[args.analyst])
     if not obs:
         print("No views could be scored. Check that prices are loaded for the stocks and the index.")
@@ -60,6 +65,8 @@ def main(argv: list[str] | None = None) -> None:
     print("- Prices are adjusted and exclude dividends. No trading costs are included.")
     if args.holdings:
         print("- These are stocks you chose to own. That is a biased sample, not the whole market.")
+    if args.index:
+        print("- Members are today's list. Stocks that left the index earlier are missing, which flatters results.")
     if args.analyst == "momentum":
         print(f"- Momentum ranks each stock only against the {len(ids)} stocks in this run.")
 

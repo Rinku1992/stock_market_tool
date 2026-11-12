@@ -62,6 +62,13 @@ Newest at the bottom. One entry per choice, with the reason.
   stocks to rank. Stocks with under 13 months of history, or no price in the last 10 days, are
   left out of the ranking.
 - **Backtest now shows the median as well as the mean**, so a few big moves cannot hide.
+- **No automated access to nseindia.com.** Whether NSE allows it is not verified (robots.txt
+  could not be read; a forum answer says the site generally does not allow scraping). Files from
+  NSE are downloaded by hand by the owner and loaded through adapters that read local files.
+- **Index member lists are matched by column name (symbol, ISIN, series).** The exact NSE file
+  layout is not verified, so the parser fails loudly if the columns are missing.
+- **Backtest on today's index list has survivorship bias.** Stocks that left the index are
+  missing. The output says so until membership history is loaded.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.
