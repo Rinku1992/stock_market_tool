@@ -7,6 +7,7 @@ its own analysts and tools, and returns a verdict for three horizons: 3-5 months
 This is decision support, not investment advice.
 
 - Design: [docs/BLUEPRINT.md](docs/BLUEPRINT.md)
+- Data formats and schemas: [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md)
 - Why things are the way they are: [DECISIONS.md](DECISIONS.md)
 
 ## Status
@@ -30,6 +31,7 @@ always answers "no call". Real analysts come next.
     src/smt/schema.py     report form every analyst returns
     src/smt/store.py      point-in-time feature store (DuckDB) + LLM call recorder
     src/smt/llm.py        the one door for LLM calls
+    src/smt/data/         data contract, validation gate, raw + Parquet storage, source adapters
     src/smt/analysts/     analysts: plain functions, one per role
     src/smt/graph.py      orchestrator (the only file that imports LangGraph)
     src/smt/cli.py        command line entry

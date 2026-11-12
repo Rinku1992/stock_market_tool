@@ -19,6 +19,12 @@ Newest at the bottom. One entry per choice, with the reason.
   `as_of`.** The rule is enforced in code, not left to prompts.
 - **Data grade C stops the run.** No verdict on bad data.
 - **Defaults:** laptop, Nifty 100.
+- **Two storage layers: raw (untouched) and canonical (Parquet).** Raw lets us re-parse
+  after any parser or schema change. Parquet is portable to BigQuery and cloud storage.
+- **Our own data contract with a validation gate.** Vendors map into our schema through
+  adapters, so changing vendor changes one file. Details in docs/DATA_CONTRACT.md.
+- **ISIN as instrument id, prices stored unadjusted, financials in tall format, rows
+  append-only.** Each choice removes a known cause of data rework.
 - **Paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.
