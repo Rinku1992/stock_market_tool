@@ -88,7 +88,8 @@ class KiteClient:
 def find_instrument_token(instruments_csv: bytes, symbol: str, exchange: str = "NSE") -> int:
     """Look up Kite's numeric token for a symbol in the /instruments CSV dump."""
     for row in csv.DictReader(io.StringIO(instruments_csv.decode())):
-        if row["tradingsymbol"] == symbol and row["exchange"] == exchange and row["instrument_type"] == "EQ":
+        if (row["tradingsymbol"] == symbol and row["exchange"] == exchange
+                and (row["instrument_type"] == "EQ" or row.get("segment") == "INDICES")):
             return int(row["instrument_token"])
     raise KiteError(f"{symbol} not found on {exchange}")
 

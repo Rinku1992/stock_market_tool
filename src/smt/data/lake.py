@@ -82,6 +82,9 @@ class Lake:
             out.append(path)
         return out
 
+    def has(self, dataset: str) -> bool:
+        return any(self._dir(dataset).rglob("*.parquet"))
+
     def read_sql(self, dataset: str) -> str:
         """A FROM-clause that reads the latest version of every row of a dataset.
 

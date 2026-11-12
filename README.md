@@ -12,8 +12,9 @@ This is decision support, not investment advice.
 
 ## Status
 
-Phase 0 (foundation) is done. The graph runs end to end with placeholder analysts and
-always answers "no call". Real analysts come next.
+Kite prices load on live data. Three real analysts run (price structure, liquidity, market
+beta). All other analysts are placeholders, and the verdict is always "no call" until the
+scoring engine and backtest are built. See the status table in the blueprint.
 
 ## Setup
 
@@ -24,7 +25,7 @@ always answers "no call". Real analysts come next.
 ## Run
 
     pytest                    # all tests
-    python -m smt.cli RELIANCE
+    python -m smt.cli RELIANCE --isin INE002A01018
 
 ## Kite data (run on your own machine)
 
@@ -32,6 +33,7 @@ Put `KITE_API_KEY` and `KITE_API_SECRET` in `.env`. Never commit them.
 
     python -m smt.kite_cli login                          # once each day, opens the Zerodha login
     python -m smt.kite_cli prices RELIANCE INE002A01018   # 5 years of daily prices
+    python -m smt.kite_cli prices "NIFTY 50" IDX:NIFTY50  # the index, for strength versus market
     python -m smt.kite_cli holdings                       # your holdings as of today
 
 The Kite app's redirect URL must be `http://127.0.0.1:8000/kite/callback`.

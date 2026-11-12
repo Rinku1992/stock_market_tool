@@ -31,6 +31,13 @@ Newest at the bottom. One entry per choice, with the reason.
   work. Known cost: Kite rewrites past prices after each new split or bonus, so that stock's
   full history must be re-pulled then. Valuation at a past date must use per-share numbers
   on the same basis.
+- **Price analysts give views from simple written rules, with confidence capped at 0.3.**
+  The rules (moving averages plus return versus Nifty 50) are not backtested yet. The cap
+  and a note on every report keep them from being over-trusted. The verdict stays
+  "no call" until the scoring engine and backtest exist.
+- **Liquidity and market beta report facts only, with neutral views.** They are context
+  and constraints, not buy or sell signals.
+- **Price trend gives no view for the 2-year horizon.** Trend alone says little that far out.
 - **Paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

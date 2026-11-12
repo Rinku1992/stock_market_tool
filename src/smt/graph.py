@@ -14,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 
 from smt.analysts import DESKS
 from smt.analysts.base import Analyst, AnalystContext
+from smt.data.lake import Lake
 from smt.llm import LLMClient
 from smt.schema import AnalystReport, Call, DataGrade, Horizon, HorizonVerdict, Verdict
 from smt.store import FeatureStore
@@ -22,6 +23,7 @@ from smt.store import FeatureStore
 class RunState(TypedDict, total=False):
     run_id: str
     symbol: str
+    instrument_id: str | None
     as_of: date
     data_grade: DataGrade
     stock_type: str
@@ -44,6 +46,7 @@ def _default_router(ctx: AnalystContext) -> str:
 def build_graph(
     store: FeatureStore,
     llm: LLMClient | None = None,
+    lake: Lake | None = None,
     desks: dict[str, list[Analyst]] | None = None,
     grade_fn: GradeFn = _default_grade,
     router_fn: RouterFn = _default_router,
@@ -57,6 +60,8 @@ def build_graph(
             store=store,
             llm=llm,
             stock_type=state.get("stock_type"),
+            lake=lake,
+            instrument_id=state.get("instrument_id"),
         )
 
     def data_office(state: RunState) -> dict:
@@ -127,6 +132,8 @@ def build_graph(
     return g.compile()
 
 
-def run(symbol: str, as_of: date, store: FeatureStore, llm: LLMClient | None = None, **kwargs) -> RunState:
-    graph = build_graph(store, llm, **kwargs)
-    return graph.invoke({"run_id": uuid.uuid4().hex, "symbol": symbol.upper(), "as_of": as_of, "reports": []})
+def run(symbol: str, as_of: date, store: FeatureStore, llm: LLMClient | None = None, lake: Lake | None = None,
+        instrument_id: str | None = None, **kwargs) -> RunState:
+    graph = build_graph(store, llm, lake, **kwargs)
+    return graph.invoke({"run_id": uuid.uuid4().hex, "symbol": symbol.upper(), "instrument_id": instrument_id,
+                         "as_of": as_of, "reports": []})

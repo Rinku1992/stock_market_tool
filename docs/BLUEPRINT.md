@@ -88,9 +88,10 @@ sentinel (C), depth controller (C)
 |---|---|---|---|
 | 0. Foundation | Schema, feature store, LLM wrapper, graph skeleton | Dummy run gives a valid verdict | Done |
 | 1a. Data contract | Vendor-free schemas, validation gate, raw + Parquet storage, adapter interface (see DATA_CONTRACT.md) | A fake vendor loads end to end | Done |
-| 1b. Kite adapter | Login, daily prices, holdings | Runs on live data for 5 stocks | Built, not yet run live |
+| 1b. Kite adapter | Login, daily prices, holdings | Runs on live data for 5 stocks | Prices run live for RELIANCE. Holdings not yet run live |
 | 1c. Data office | Fundamentals adapter, corporate action fix, reconciler, data grade | 5 test stocks load with a grade | Needs a fundamentals vendor |
-| 2. Code desks | Router, financial trend, valuation, price structure, ownership | Each returns a report for the 5 stocks | |
+| 2a. Price analysts | Price structure, liquidity, market beta (rules not backtested, confidence capped) | Reports for RELIANCE on live data | Built, awaiting live run |
+| 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Needs a fundamentals vendor |
 | 3. Engines | Scoring engine, backtest engine | A backtest runs on code features | |
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |
 | 5. Review + verdict | Review unit, three horizon committees | One full verdict page | |
