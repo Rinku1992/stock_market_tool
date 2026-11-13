@@ -109,7 +109,7 @@ sentinel (C), depth controller (C)
 | 2a. Price analysts | Price structure, liquidity, market beta (rules not backtested, confidence capped) | Reports for RELIANCE on live data | Built, awaiting live run |
 | 2c. Momentum factor | Risk-adjusted 12-1 momentum, ranked across loaded stocks, terciles | Backtest on holdings | Built, awaiting live run |
 | 2d. Desk lead | DeskReport schema, weighted combine from versioned weights, LLM summary checked by code | Market activity desk returns a DeskReport | Built |
-| 2e. Calibration (learning loop) | Re-score analysts on outcomes, by regime; write new weight versions | Weights change only when evidence does | Planned |
+| 2e. Calibration (learning loop) | Re-score analysts on outcomes, by regime; write new weight versions | Weights change only when evidence does | Built (`python -m smt.calibrate`). Nifty 100 run: no market activity analyst passes, all weights 0. Regime reported only. Weights not written yet (owner's call) |
 | 2f. Financial trend | NSE results XBRL reader (both formats), point-in-time financials, financial trend analyst | Real Reliance filings load and report | Built. Needs filings for more stocks and quarters |
 | 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Router built (lender / general, from filing tags; checked on M&MFIN, banks not verified). Lender playbook for financial trend built. Valuation and ownership need a fundamentals vendor |
 | 3a. Backtest engine | Monthly point-in-time replay, scored on return versus Nifty 50 | Runs on live prices | Built. Only meaningful once many stocks are loaded |

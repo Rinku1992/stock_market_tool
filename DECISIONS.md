@@ -133,3 +133,30 @@ Newest at the bottom. One entry per choice, with the reason.
 - **New canonical items:** loans, borrowings_other_than_debt_securities, debt_securities, deposits,
   subordinated_liabilities, interest_income (InterestEarned), credit_cost (ImpairmentOnFinancialInstruments).
   Files loaded before this change were re-loaded with data_cli so the lake uses the new names.
+- **Calibration officer rules, fixed BEFORE running on real data (13 Nov 2026).** Code only, no LLM.
+  For each analyst in a desk and each horizon, the existing backtest (scored against the median stock
+  on the same date) gives scored views. Then:
+  - Edge = median excess return of positive views minus median excess return of negative views.
+  - A weight above 0 needs ALL three:
+    a. at least 300 positive and 300 negative cases;
+    b. stable: the dates are split into 3 periods with equal numbers of dates, in time order, and the
+       edge is above 0 in each one (a period with no positive or no negative case fails);
+    c. shuffle test: within each date, the views are shuffled among that date's stocks 500 times
+       (fixed seed 0, so the result repeats). The real edge must be above at least 95% of the
+       shuffled edges. Shuffling within a date keeps each date's mix of views and its market, so
+       only the link between view and stock is tested.
+  - If all hold: weight = edge / (edge + 0.02), capped at 1. Otherwise weight 0. The 0.02 means a
+    2-point edge gets weight 0.5.
+  - Market regime (Nifty 50 above or below its 200-day average on the view date) is reported only.
+    It does not change weights yet. Dates with under 200 days of index history have no regime.
+  - Weights are written only with --write, as a new dated version; the old file is kept in
+    desks/weights/history/. Known limit: monthly views overlap in time, so cases are not fully
+    independent. The 3-period check is there partly for this.
+- **First calibration run, market_activity on the Nifty 100 (13 Nov 2026), not written.** Monthly views
+  Feb 2022 to Jun 2026, scored against the median stock. No analyst passes, so every weight stays 0,
+  the same as the current file. Momentum 6-12 months: edge +1.2 points overall, but +18.1, -5.2 and
+  -1.6 points in the three periods, and it beats only 92% of shuffles, so the whole edge came from one
+  early period. Price structure: edge -0.9 points (3-5 months) and 0.0 (6-12 months). Liquidity and
+  market beta give no direction. Regime (report only): price structure 3-5 months was +0.3 points
+  with the Nifty above its 200-day average and -3.4 points below it. Weights are not written until the
+  owner says so.
