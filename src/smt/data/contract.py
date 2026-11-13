@@ -48,7 +48,8 @@ INSTRUMENT_TYPES = frozenset({"equity", "index"})
 # change after each new corporate action). "as_traded": the price that was really printed that day.
 PRICE_BASES = frozenset({"adjusted", "as_traded"})
 ACTION_TYPES = frozenset({"split", "bonus", "dividend", "buyback", "rights", "demerger", "merger", "other"})
-PERIOD_TYPES = frozenset({"Q", "A"})
+# Q quarter, H half year to date, N nine months to date, A full year, I balance-sheet date (an instant)
+PERIOD_TYPES = frozenset({"Q", "H", "N", "A", "I"})
 STATEMENTS = frozenset({"pl", "bs", "cf"})
 HOLDER_CATEGORIES = frozenset({"promoter", "fii", "dii", "public", "other"})
 DOC_TYPES = frozenset(

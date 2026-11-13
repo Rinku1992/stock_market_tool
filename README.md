@@ -39,6 +39,7 @@ Put `KITE_API_KEY` and `KITE_API_SECRET` in `.env`. Never commit them.
     python -m smt.kite_cli prices-holdings                # 5 years of prices for every holding
     python -m smt.data_cli index-list data/<file>.csv     # Nifty 100 list you downloaded from NSE
     python -m smt.kite_cli prices-index                   # 5 years of prices for every Nifty 100 member
+    python -m smt.data_cli results data/<file>.xml        # quarterly results XBRL files you downloaded from NSE
 
 The Kite app's redirect URL must be `http://127.0.0.1:8000/kite/callback`.
 The Kite adapter is tested against sample payloads only. It has not yet been run on live data.

@@ -87,6 +87,18 @@ Newest at the bottom. One entry per choice, with the reason.
   starts at weight 0 for all four analysts, because none has shown an edge. The planned
   calibration step will re-score analysts on new outcomes (and by market regime) and write new
   versions. An LLM may later propose new rules, but each must pass a backtest and the owner's OK.
+- **Company financials come from NSE results XBRL files, downloaded by hand.** Both the older
+  "Financial Results" format and the newer "Integrated Filing" format are read. Plain facts are
+  stored; segment facts are skipped for now.
+- **Older-format trap handled:** year-to-date contexts (ids starting "Four") carry the quarter's
+  dates. Their start is set to the financial year start, and two different values for one tag
+  and period make the load fail.
+- **A filing is "known" from the later of board meeting end and NSE broadcast time, and analysts
+  read financials as of that day's market close (15:30 IST).** Results released in the evening
+  can only be acted on the next day. Reading as of midnight would leak them into that day's close.
+- **financials period_type gains H, N and I** (half year to date, nine months to date, balance-sheet
+  date). Allowed contract change: new enum values.
+- **financial_trend gives facts only, no direction,** until enough filed history is loaded to test a rule.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

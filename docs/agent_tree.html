@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Financial trend analyst", "Equity research. Building the reader for NSE results files (XBRL). Both sample files received."],
+  now: ["Fundamentals at scale", "Financial trend works on real Reliance filings. Hand-downloading files for 100 stocks will not scale, so a bulk source is needed next."],
   next: ["Calibration officer (learning loop)", "Track record office. Re-scores each analyst on real outcomes and updates desk weights, so desks improve over time."],
-  you: ["One more XBRL file", "The Dec 2024 file you sent is Standalone. Please also upload the Consolidated one from the same row pair."]
+  you: ["Load the 3 files, and decide on a bulk source", "Run the results command on the Reliance files. Then choose how to get filings for all 100 stocks."]
 };
 const LOG = [
+  ["13 Nov", "Financial trend analyst built. Reads NSE results XBRL files (old and new formats) with point-in-time timing. Checked on 3 real Reliance filings."],
   ["13 Nov", "Market activity desk lead built: code combines the 4 analysts using versioned weights; LLM summary is checked by code."],
   ["13 Nov", "Fair test on the Nifty 100: neither price rule beats the median stock. Both kept as context only, not verdict inputs."],
   ["13 Nov", "Fairer backtest scoring built (median of all stocks as the benchmark)."],
@@ -210,7 +211,7 @@ const UNITS = [
     ["Silence analyst", "B", "Flags what is missing: late results, a skipped earnings call."] ] },
   { n: "2", t: "Equity research", q: "Is the business good, and is the price fair?", a: [
     ["Business model", "L", "How it earns, segment mix, customer concentration."],
-    ["Financial trend", "C", "Ten years of margins, ROCE, debt and cash conversion.", 3],
+    ["Financial trend", "C", "Margins, growth, debt and cash conversion from NSE results filings. Facts only until enough history is loaded.", 1],
     ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
     ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
     ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
@@ -264,7 +265,7 @@ const UNITS = [
 ];
 const TOOLS = [
   ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
-  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 0], ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
+  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 0], ["Scoring engine", 0], ["Results file reader (NSE XBRL)", 1], ["Bulk fundamentals source", 0], ["News source", 0]
 ];
 const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
 

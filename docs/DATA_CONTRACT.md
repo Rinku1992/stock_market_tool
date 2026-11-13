@@ -41,7 +41,7 @@ Code: `src/smt/data/contract.py`. This page explains the choices.
 | `instruments` | instrument_id, exchange, valid_from | Symbol history |
 | `prices_daily` | instrument_id, exchange, trade_date | Equities and indices. `price_basis` column: adjusted or as_traded. Schema v2 |
 | `corporate_actions` | instrument_id, ex_date, action_type | Split, bonus, dividend, buyback, rights, demerger, merger |
-| `financials` | instrument_id, period_end, period_type, statement, consolidated, line_item, published_at | Tall format |
+| `financials` | instrument_id, period_end, period_type, statement, consolidated, line_item, published_at | Tall format. period_type: Q quarter, H half year to date, N nine months to date, A year, I balance-sheet date. Canonical item names in `src/smt/sources/nse_results.py`; other items kept as `xbrl:<Tag>` |
 | `shareholding` | instrument_id, period_end, holder_category, published_at | Includes pledge |
 | `index_members` | index_id, instrument_id, valid_from | Membership over time |
 | `holdings` | account, instrument_id, as_of | `account` is an alias, never the broker client id |
