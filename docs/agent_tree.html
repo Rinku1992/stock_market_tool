@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Research Engine Agent Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one trunk (the orchestrator) with units branching right, analysts as leaves on each branch. */
+:root {
+  --bg: #f4f6f7;
+  --surface: #ffffff;
+  --ink: #15212a;
+  --muted: #5b6b76;
+  --line: #b9c6cd;
+  --accent: #0b6e72;
+  --accent-soft: #dcefef;
+  --built: #1f7a3d;
+  --built-soft: #e2f3e7;
+  --chip-border: #c9d4da;
+  --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f171c; --surface: #16222a; --ink: #e6eef2; --muted: #95a8b3; --line: #3a4c57;
+    --accent: #5cc6c9; --accent-soft: #173a3d; --built: #6fd394; --built-soft: #183626; --chip-border: #34474f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f171c; --surface: #16222a; --ink: #e6eef2; --muted: #95a8b3; --line: #3a4c57;
+  --accent: #5cc6c9; --accent-soft: #173a3d; --built: #6fd394; --built-soft: #183626; --chip-border: #34474f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 56px; }
+h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance; }
+.lede { color: var(--muted); margin: 0 0 22px; max-width: 65ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.stat { background: var(--surface); border: 1px solid var(--chip-border); border-radius: 10px; padding: 10px 14px; min-width: 120px; }
+.stat b { display: block; font: 600 22px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat.built b { color: var(--built); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; color: var(--muted); font-size: 13px; margin-bottom: 26px; }
+.chip { font: 500 11px/1 var(--font-mono); padding: 4px 6px; border-radius: 5px; border: 1px solid var(--chip-border); color: var(--muted); white-space: nowrap; }
+.chip.llm { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.chip.both { border-color: var(--accent); color: var(--accent); }
+.status { font: 500 11px/1 var(--font-mono); padding: 4px 7px; border-radius: 999px; white-space: nowrap; }
+.status.built { background: var(--built-soft); color: var(--built); }
+.status.built::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--built); margin-right: 5px; vertical-align: 1px; }
+.status.planned { color: var(--muted); border: 1px dashed var(--chip-border); }
+
+.root { background: var(--accent); color: #fff; border-radius: 12px; padding: 16px 18px; max-width: 640px; position: relative; }
+:root[data-theme="dark"] .root { color: #08292a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .root { color: #08292a; } }
+.root h2 { font: 600 19px/1.2 var(--font-display); margin: 0 0 4px; }
+.root p { margin: 0; opacity: .92; font-size: 14px; max-width: 60ch; }
+.flow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.flow span { font: 500 11px/1 var(--font-mono); background: rgba(255,255,255,.18); padding: 5px 7px; border-radius: 5px; }
+
+.tree { list-style: none; margin: 0 0 0 22px; padding: 22px 0 0 30px; }
+.tree > li, .leaves > li { position: relative; }
+.tree > li::before, .leaves > li::before {
+  content: ""; position: absolute; left: -30px; top: 0; width: 24px; height: 26px;
+  border-left: 2px solid var(--line); border-bottom: 2px solid var(--line); border-bottom-left-radius: 10px;
+}
+.tree > li:not(:last-child)::after, .leaves > li:not(:last-child)::after {
+  content: ""; position: absolute; left: -30px; top: 0; bottom: 0; border-left: 2px solid var(--line);
+}
+.tree > li { padding-bottom: 22px; }
+.tree > li:first-child::before { top: -22px; height: 48px; }
+.tree > li:first-child:not(:last-child)::after { top: -22px; }
+
+.unit-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; background: var(--surface);
+  border: 1px solid var(--chip-border); border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; padding: 10px 14px; }
+.unit-head h3 { font: 600 16px/1.3 var(--font-display); margin: 0; }
+.unit-head .q { color: var(--muted); font-size: 13.5px; flex: 1 1 260px; }
+.unit-head .count { font: 500 12px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.unit-head .count em { font-style: normal; color: var(--built); }
+.veto { font: 500 11px/1 var(--font-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 5px; padding: 3px 5px; }
+
+.leaves { list-style: none; margin: 0 0 0 18px; padding: 10px 0 0 30px; }
+.leaves > li { padding-bottom: 8px; }
+.leaves > li::before { height: 20px; }
+.leaf { display: grid; grid-template-columns: 210px auto auto 1fr; gap: 6px 10px; align-items: center;
+  background: var(--surface); border: 1px solid var(--chip-border); border-radius: 8px; padding: 7px 12px; }
+.leaf.is-built { border-color: var(--built); }
+.leaf .name { font-weight: 500; }
+.leaf .note { color: var(--muted); font-size: 13.5px; }
+@media (max-width: 760px) {
+  .leaf { grid-template-columns: auto auto 1fr; }
+  .leaf .name { grid-column: 1 / -1; }
+  .leaf .note { grid-column: 1 / -1; }
+  .tree { margin-left: 8px; padding-left: 24px; }
+  .leaves { margin-left: 6px; padding-left: 26px; }
+}
+.foot { margin-top: 30px; color: var(--muted); font-size: 13px; max-width: 70ch; }
+.foot h4 { font: 600 14px/1.3 var(--font-display); color: var(--ink); margin: 0 0 8px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tool { background: var(--surface); border: 1px solid var(--chip-border); border-radius: 8px; padding: 7px 10px; display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Stock Research Engine: who does what</h1>
+  <p class="lede">One orchestrator sends each stock through research units. Every unit has its own analysts, and each analyst does one job. The answer is consider, avoid or no call for 3-5 months, 6-12 months and 2 years.</p>
+
+  <div class="stats" id="stats"></div>
+  <div class="legend">
+    <span><span class="chip">Code</span> rules and maths, no AI</span>
+    <span><span class="chip llm">LLM</span> reads text, quotes its source</span>
+    <span><span class="chip both">Both</span> LLM extracts, code decides</span>
+    <span><span class="status built">Built</span> running on live data</span>
+    <span><span class="status planned">Planned</span></span>
+  </div>
+
+  <section class="root" aria-label="Orchestrator">
+    <h2>Orchestrator</h2>
+    <p>Runs the same fixed path for every stock. No AI decides which analyst runs next, so the same input gives the same answer.</p>
+    <div class="flow" aria-label="Order of work">
+      <span>1 Data office</span><span>2 Router</span><span>3 Research desks, in parallel</span><span>4 Independent review</span><span>5 Judgement</span><span>6 Verdict per horizon</span>
+    </div>
+  </section>
+
+  <ul class="tree" id="tree"></ul>
+
+  <section class="foot">
+    <h4>Shared tools under the agents</h4>
+    <div class="tools" id="tools"></div>
+    <p>Ground rules: code computes every number; the LLM only extracts facts with an exact quote; every claim links to its source; no rule affects a verdict until a backtest supports it. Status as of 13 November 2026.</p>
+  </section>
+</main>
+<script>
+const UNITS = [
+  { n: "0", t: "Data office", q: "Checks the data before any research runs. Bad data stops the run.", a: [
+    ["Symbol and corporate action resolver", "C", "Maps each symbol to its ISIN and tracks splits, bonus issues and mergers."],
+    ["Reconciler", "C", "Compares the same figure from two sources and flags any mismatch."],
+    ["Freshness clerk", "C", "Stamps every value with the date it became known."],
+    ["Coverage grader", "C", "Grades the data A, B or C. On C, no verdict is given."],
+    ["Point-in-time librarian", "C", "Makes sure backtests only see what was known on each date."],
+    ["Input guard", "C", "Treats news and web text as untrusted and blocks hidden instructions."] ] },
+  { n: "R", t: "Router", q: "Labels the stock so each desk uses the right playbook.", a: [
+    ["Stock type router", "C", "Bank, insurer, IT, pharma, commodity, real estate, holding company or new-age."],
+    ["Sector playbooks", "C", "Swaps the metrics per type, for example bad loans and deposits for banks."] ] },
+  { n: "1", t: "Market news research", q: "What is happening to the company, and does it matter?", a: [
+    ["Event clusterer", "B", "Turns many articles on one story into one event."],
+    ["News credibility", "B", "Ranks the source: exchange filing, company, named reporter, rumour."],
+    ["Sentiment shift", "B", "Measures change in tone against this stock's own normal."],
+    ["News impact", "C", "Checks how similar past events moved this stock and its sector."],
+    ["Priced-in check", "C", "Checks if the price moved before the news came out."],
+    ["Silence analyst", "B", "Flags what is missing: late results, a skipped earnings call."] ] },
+  { n: "2", t: "Equity research", q: "Is the business good, and is the price fair?", a: [
+    ["Business model", "L", "How it earns, segment mix, customer concentration."],
+    ["Financial trend", "C", "Ten years of margins, ROCE, debt and cash conversion."],
+    ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
+    ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
+    ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
+    ["Reverse valuation", "C", "Works out what growth today's price already assumes."],
+    ["Relative valuation", "C", "Valuation multiples versus own history and peers."],
+    ["Credit", "B", "Rating changes, debt due dates, interest cover."],
+    ["Legal and regulatory", "B", "SEBI orders, tax demands, court cases."] ] },
+  { n: "3", t: "Industry and geopolitical research", q: "What is the world around the company doing?", a: [
+    ["Sector cycle", "B", "Capacity, pricing and inventory: where the cycle stands."],
+    ["Input cost mapper", "C", "Links the company to crude, metals and the rupee."],
+    ["Policy", "L", "PLI, duties, GST, RBI and SEBI rule changes."],
+    ["Geopolitical exposure", "B", "Revenue by country, import dependence, tariff risk."],
+    ["Macro regime", "C", "Rates, liquidity and rupee regime. Sets how much each desk counts."],
+    ["Peer read-through", "B", "Uses results from peers that reported earlier."] ] },
+  { n: "4", t: "Market activity and ownership research", q: "What are the price and the big holders telling us?", a: [
+    ["Price structure", "C", "Trend versus 50 and 200-day averages, and versus the Nifty 50.", 1],
+    ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100.", 1],
+    ["Liquidity", "C", "Daily traded value: can you exit without moving the price?", 1],
+    ["Market beta", "C", "How much of the stock's move is just the market.", 1],
+    ["Ownership", "C", "Promoter, FII, DII and mutual fund stake changes, and pledges."],
+    ["Insider and deals", "C", "Insider trades, bulk and block deals."],
+    ["Derivatives positioning", "C", "Open interest, futures basis and rollover."],
+    ["Surveillance", "C", "Exchange watch lists and circuit limit changes."],
+    ["Crowding", "B", "Sudden jumps in small-holder count and social media hype."],
+    ["Promoter group", "B", "Group companies, cross-holdings and group debt."] ] },
+  { n: "5", t: "Event and catalyst desk", q: "What could move the stock inside each horizon?", a: [
+    ["Calendar", "C", "Results, budget and rulings due within each horizon."],
+    ["Supply", "B", "Lock-in expiries, promoter sales, fund raises."],
+    ["Index flow", "C", "Likely index entry or exit, and the forced buying or selling."] ] },
+  { n: "6", t: "Portfolio and position desk", q: "For stocks you own on Zerodha: hold, add, trim or exit.", a: [
+    ["Holding context", "C", "Buy price, holding period, date it turns long-term for tax."],
+    ["Overlap", "C", "How much this stock moves with your other holdings."],
+    ["Position size", "C", "Checks if it is too big a share of your portfolio."],
+    ["Thesis tracker", "B", "Stores why you bought and checks if that still holds."] ] },
+  { n: "7", t: "Independent review", q: "Challenges every claim before a verdict is allowed.", veto: true, a: [
+    ["Evidence auditor", "B", "Drops any claim that has no source."],
+    ["Number re-checker", "C", "Recomputes key figures from raw data."],
+    ["Bear advocate", "L", "Writes the best case against, seeing only raw data."],
+    ["Contradiction finder", "L", "Names where the desks disagree."],
+    ["Pre-mortem", "L", "Assumes the stock fell 30% and lists the top three reasons why."] ] },
+  { n: "J", t: "Judgement", q: "Puts the case in context before the call.", a: [
+    ["Base rate", "C", "How stocks that looked like this did over each horizon in the past."],
+    ["Compared to what", "C", "Tests the stock against simply holding the Nifty or the sector leader."],
+    ["Scenarios", "B", "Bull, base and bear ranges, not one number."] ] },
+  { n: "8", t: "Track record office", q: "Keeps the engine honest over time.", a: [
+    ["Call logger", "C", "Saves every verdict with its date, price and reasons."],
+    ["Calibration officer", "C", "Lowers confidence where past calls turned out wrong."] ] },
+  { n: "S", t: "System", q: "Keeps the engine running after a verdict.", a: [
+    ["Sentinel", "C", "Watches the conditions behind a view and alerts when one breaks."],
+    ["Depth controller", "C", "Chooses a quick scan or a full run, to control cost and time."] ] }
+];
+const TOOLS = [
+  ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
+  ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
+];
+const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function status(built) { return el("span", "status " + (built ? "built" : "planned"), built ? "Built" : "Planned"); }
+
+const tree = document.getElementById("tree");
+let total = 0, built = 0; const byType = { C: 0, L: 0, B: 0 };
+for (const u of UNITS) {
+  const li = el("li"), head = el("div", "unit-head");
+  const b = u.a.filter(x => x[3]).length;
+  total += u.a.length; built += b;
+  head.append(el("h3", null, u.t), el("span", "q", u.q));
+  if (u.veto) head.append(el("span", "veto", "Has veto"));
+  const count = el("span", "count", u.a.length + " analysts");
+  if (b) { const em = el("em", null, " · " + b + " built"); count.append(em); }
+  head.append(count);
+  const leaves = el("ul", "leaves");
+  for (const [name, t, note, isBuilt] of u.a) {
+    byType[t]++;
+    const leaf = el("div", "leaf" + (isBuilt ? " is-built" : ""));
+    leaf.append(el("span", "name", name), el("span", "chip " + TYPE[t][1], TYPE[t][0]), status(isBuilt), el("span", "note", note));
+    const item = el("li"); item.append(leaf); leaves.append(item);
+  }
+  li.append(head, leaves); tree.append(li);
+}
+const stats = [[total, "analysts"], [UNITS.length, "units"], [byType.C, "code only"], [byType.B, "LLM + code"], [byType.L, "LLM only"], [built, "built and live", "built"]];
+const sEl = document.getElementById("stats");
+for (const [v, label, cls] of stats) { const s = el("div", "stat" + (cls ? " " + cls : "")); s.append(el("b", null, String(v)), el("span", null, label)); sEl.append(s); }
+const tEl = document.getElementById("tools");
+for (const [name, isBuilt] of TOOLS) { const t = el("div", "tool"); t.append(el("span", null, name), status(isBuilt)); tEl.append(t); }
+</script>
+</body>
+</html>
