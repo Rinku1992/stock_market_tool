@@ -8,6 +8,8 @@ The records are only worth anything if they were made BEFORE the outcome was kno
 - Prices must be current: the Nifty 50 must have a bar for today (so today was a trading day and
   prices were updated), and every stock must have one too. Otherwise nothing is recorded.
 - Recording the same day twice adds nothing: stocks already recorded that day are skipped.
+- The code must be committed: with uncommitted changes to tracked files, nothing is recorded, so
+  every call points at a commit that can be checked later. Untracked files (like data/) do not count.
 
 Rows go through an adapter and the data contract like every other dataset (raw JSON kept, then
 validated Parquet in the "calls" dataset).
@@ -48,6 +50,14 @@ def check_record_time(as_of: date, now: datetime) -> None:
             "when the day's prices are final.")
 
 
+def check_committed(version: str) -> None:
+    if version.endswith("-dirty"):
+        raise RecordRefused(
+            f"The code has uncommitted changes to tracked files (at {version.removesuffix('-dirty')[:7]}). "
+            "Commit or undo them first (see: git status), so every recorded call points at a commit "
+            "that can be checked later. Untracked files such as data/ do not count.")
+
+
 def stale_prices(lake: Lake, instrument_ids: list[str], as_of: date) -> list[tuple[str, date | None]]:
     """Stocks whose latest stored bar is not the last trading day. Raises if the index itself is not current.
 
@@ -69,11 +79,14 @@ def stale_prices(lake: Lake, instrument_ids: list[str], as_of: date) -> list[tup
     return stale
 
 
-def code_version() -> str:
-    """The git commit the engine ran from, with "-dirty" if tracked files had uncommitted changes."""
+def code_version(repo: Path = _REPO) -> str:
+    """The git commit the engine ran from, with "-dirty" if tracked files had uncommitted changes.
+
+    Untracked files do not count: `git diff HEAD` only looks at tracked files (staged or not).
+    """
     try:
-        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=_REPO, capture_output=True, text=True, check=True).stdout.strip()
-        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD"], cwd=_REPO).returncode != 0
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD"], cwd=repo).returncode != 0
         return sha + ("-dirty" if dirty else "")
     except (OSError, subprocess.CalledProcessError):
         return "unknown"
@@ -156,6 +169,8 @@ def record_day(lake: Lake, store, stocks: list[tuple[str, str | None]], now: dat
     now = now or datetime.now(UTC)
     as_of = as_of or now.astimezone(IST).date()
     check_record_time(as_of, now)
+    version = version or code_version()
+    check_committed(version)
     stocks = list(dict.fromkeys(stocks))  # same stock in holdings and index: once
     stale = stale_prices(lake, [iid for iid, _ in stocks], as_of)
     if stale:
@@ -163,7 +178,6 @@ def record_day(lake: Lake, store, stocks: list[tuple[str, str | None]], now: dat
         listed = ", ".join(f"{names[i]} (latest {d or 'none'})" for i, d in stale)
         raise RecordRefused(f"Prices are not current for {len(stale)} stock(s): {listed}. "
                             "Run: python -m smt.kite_cli update-prices. Nothing was recorded.")
-    version = version or code_version()
     result, done = RecordResult(as_of), recorded_ids(lake, as_of)
     for iid, sym in stocks:
         symbol = sym or iid
