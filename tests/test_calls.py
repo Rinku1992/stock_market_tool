@@ -145,7 +145,8 @@ def test_update_prices_targets_and_window(tmp_path):
     lin = {"source": "t", "published_at": datetime(2026, 1, 1, tzinfo=UTC), "ingested_at": datetime(2026, 1, 2, tzinfo=UTC),
            "raw_sha256": "x", "schema_version": 1}
     lake.write("index_members", pa.Table.from_pylist(
-        [{"index_id": "IDX:NIFTY100", "instrument_id": i, "valid_from": date(2026, 1, 1), "valid_to": None, "source_ref": s, **lin}
+        [{"index_id": "IDX:NIFTY100", "instrument_id": i, "valid_from": date(2026, 1, 1), "valid_to": None, "industry": None,
+          "source_ref": s, **lin, "schema_version": 2}
          for i, s in STOCKS]))
     lake.write("holdings", pa.Table.from_pylist(
         [{"account": "main", "instrument_id": i, "as_of": date(2026, 1, 1), "quantity": 1.0, "avg_price": 1.0, "source_ref": s, **lin}

@@ -54,8 +54,9 @@ priced-in (C), silence analyst (B)
 
 **2. Equity research**
 business model (L), financial trend (C), forensic accounts (B), management say-do (B),
-capital allocation (B), reverse valuation (C), relative valuation (C), credit (B),
-legal and regulatory action (B)
+capital allocation (B), credit (B), legal and regulatory action (B).
+Valuation (see docs/VALUATION.md): accounting adjustments (C), earnings power (C),
+capital returns / ROIC (C), relative valuation (C), reverse valuation (C), value range (C)
 
 **3. Industry and geopolitical research**
 sector cycle (B), input cost mapper (C), policy (L), geopolitical exposure (B),
@@ -112,7 +113,7 @@ sentinel (C), depth controller (C)
 | 2e. Calibration (learning loop) | Re-score analysts on outcomes, by regime; write new weight versions | Weights change only when evidence does | Built (`python -m smt.calibrate`). Nifty 100 run: no market activity analyst passes, all weights 0. Regime reported only. Recorded as market_activity weights version 2026-11-13.2 |
 | 2g. Call logger | "calls" dataset, record command (today only, after 15:30 IST, no duplicates, prices must be current), update-prices | Calls recorded for holdings and Nifty 100 | Built. First day recorded 13 Nov 2026: 115 stocks, 4,830 calls. Needs a run every trading day |
 | 2f. Financial trend | NSE results XBRL reader (both formats), point-in-time financials, financial trend analyst | Real Reliance filings load and report | Built. Needs filings for more stocks and quarters |
-| 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Router built (lender / general, from filing tags; checked on M&MFIN, banks not verified). Lender playbook for financial trend built. Valuation and ownership need a fundamentals vendor |
+| 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Router built (lender / real estate / general, from filing tags, segment names and index industry; banks not verified). Lender playbook for financial trend built. Valuation stage A built from NSE filings (earnings power, capital returns, relative valuation; views neutral). Stages B-D and ownership to come |
 | 3a. Backtest engine | Monthly point-in-time replay, scored on return versus Nifty 50 | Runs on live prices | Built. Only meaningful once many stocks are loaded |
 | 3b. Scoring engine | Turns analyst views into a verdict, using weights that backtests support | First real verdict | Needs 3a results on many stocks |
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |

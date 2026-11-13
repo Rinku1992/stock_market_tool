@@ -43,7 +43,8 @@ Code: `src/smt/data/contract.py`. This page explains the choices.
 | `corporate_actions` | instrument_id, ex_date, action_type | Split, bonus, dividend, buyback, rights, demerger, merger |
 | `financials` | instrument_id, period_end, period_type, statement, consolidated, line_item, published_at | Tall format. period_type: Q quarter, H half year to date, N nine months to date, A year, I balance-sheet date. Canonical item names in `src/smt/sources/nse_results.py`; other items kept as `xbrl:<Tag>` |
 | `shareholding` | instrument_id, period_end, holder_category, published_at | Includes pledge |
-| `index_members` | index_id, instrument_id, valid_from | Membership over time |
+| `index_members` | index_id, instrument_id, valid_from | Membership over time. Schema v2: `industry` from the index list (may be empty). Rebuild from stored raw files: `python -m smt.data_cli rebuild index_members` |
+| `filing_segments` | instrument_id, period_end, consolidated, segment_name, published_at | Names of reportable segments from results filings. Names only, no segment values. Used by the router (real estate) |
 | `holdings` | account, instrument_id, as_of | `account` is an alias, never the broker client id |
 | `documents` | doc_id | Index of stored PDFs and transcripts |
 | `calls` | as_of, instrument_id, source_kind, source_id, horizon | What the engine said: one row per stock, per source (each analyst, each desk lead, the verdict), per horizon. Direction, strength, confidence, the verdict's call, close price on the day, weights version (desk rows), code version (git commit) and the full report as JSON. `published_at` = when it was recorded. Only for today's date (IST) after the 15:30 close: never backfilled |

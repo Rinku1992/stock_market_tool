@@ -15,12 +15,12 @@ from datetime import date, datetime
 
 from dotenv import load_dotenv
 
-from smt.data.adapter import ingest
+from smt.data.adapter import ingest, reparse
 from smt.data.lake import Lake
 from smt.data.members import index_members, symbol_to_isin
 from smt.data.holdings import latest_holdings, loaded_quarters, top_holdings
 from smt.sources.nse_files import NseIndexListFile
-from smt.sources.nse_results import IST, NseResultsXbrlFile, parse_results_xbrl
+from smt.sources.nse_results import IST, NseResultsSegmentsFile, NseResultsXbrlFile, parse_results_xbrl
 
 
 def find_gaps(lake: Lake, instrument_id: str, pct: float = 20.0) -> list[tuple]:
@@ -48,8 +48,27 @@ def load_results(lake: Lake, paths: list[str], isin: str | None = None, broadcas
         if not use:
             raise SystemExit(f"{path}: no ISIN in the file and {rf.symbol} is not in your holdings or the Nifty 100. Use --isin.")
         ingest(NseResultsXbrlFile(path, isin=use, broadcast_ist=when), lake)
+        if rf.segments:
+            ingest(NseResultsSegmentsFile(path, isin=use, broadcast_ist=when), lake)
         kind = "consolidated" if rf.consolidated else "standalone"
         print(f"{rf.symbol} {kind}, period ended {rf.period_end}: {len(rf.facts)} figures stored")
+
+
+def rebuild_index_members(lake: Lake) -> int:
+    """Re-parse every stored raw index list into the current index_members version. No file needed."""
+    import json
+    from pathlib import Path
+
+    manifest, n = lake.raw / "manifest.jsonl", 0
+    for line in manifest.read_text().splitlines() if manifest.exists() else []:
+        m = json.loads(line)
+        if m["source"] != "nse_manual_file" or m["dataset"] != "index_members":
+            continue
+        meta = m["meta"]
+        adapter = NseIndexListFile(meta["file"], meta["index_id"], date.fromisoformat(meta["as_of"]))
+        reparse(adapter, lake, lake.root / m["path"])
+        n += 1
+    return n
 
 
 def print_top_holdings(lake: Lake, n: int) -> None:
@@ -79,10 +98,16 @@ def main(argv: list[str] | None = None) -> None:
     rs.add_argument("paths", nargs="+")
     rs.add_argument("--isin", help="needed only for older files that have no ISIN and a symbol we cannot match")
     rs.add_argument("--broadcast", help='NSE broadcast time, IST, e.g. "2025-01-16 20:15:20" (only with one file)')
+    rb = sub.add_parser("rebuild", help="re-parse stored raw files into the current schema version")
+    rb.add_argument("dataset", choices=["index_members"])
     th = sub.add_parser("top-holdings", help="your largest holdings by money invested, and which results are loaded")
     th.add_argument("--n", type=int, default=10)
     args = p.parse_args(argv)
     lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
+    if args.cmd == "rebuild":
+        n = rebuild_index_members(lake)
+        print(f"Re-parsed {n} stored index list file(s). Nifty 100 members now: {len(index_members(lake, 'IDX:NIFTY100'))}")
+        return
     if args.cmd == "top-holdings":
         print_top_holdings(lake, args.n)
         return

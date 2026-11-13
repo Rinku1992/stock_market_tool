@@ -247,3 +247,23 @@ def test_graph_routes_a_lender_filing(tmp_path):
     ctx = _lender_ctx(tmp_path)
     state = run("X", ctx.as_of, ctx.store, lake=ctx.lake, instrument_id=ctx.instrument_id, desks={"equity_research": [financial_trend]})
     assert state["verdict"].stock_type == "lender"
+
+
+
+def test_segment_names_are_stored_but_not_values(tmp_path):
+    from smt.sources.nse_results import NseResultsSegmentsFile
+
+    x = _xbrl(facts=PL).decode().replace("</xbrli:xbrl>", (
+        '<xbrli:context id="Seg1"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier>'
+        '<xbrli:segment><t:Line xmlns:t="t">1</t:Line></xbrli:segment></xbrli:entity>'
+        '<xbrli:period><xbrli:startDate>2024-10-01</xbrli:startDate><xbrli:endDate>2024-12-31</xbrli:endDate></xbrli:period></xbrli:context>'
+        '<f:DescriptionOfReportableSegment contextRef="Seg1">Real  Estate</f:DescriptionOfReportableSegment>'
+        '<f:SegmentRevenue contextRef="Seg1" unitRef="INR" decimals="-7">999</f:SegmentRevenue></xbrli:xbrl>'))
+    rf = parse_results_xbrl(x.encode())
+    assert rf.segments == ["Real Estate"] and not any(f.tag == "SegmentRevenue" for f in rf.facts)
+    f = tmp_path / "seg.xml"
+    f.write_bytes(x.encode())
+    lake = Lake(tmp_path / "lake")
+    ingest(NseResultsSegmentsFile(f), lake)
+    assert lake.query(f"SELECT segment_name, period_end, consolidated FROM {lake.read_sql('filing_segments')}") == [
+        ("Real Estate", date(2024, 12, 31), True)]
