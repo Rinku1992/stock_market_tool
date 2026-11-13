@@ -185,7 +185,38 @@ DOCUMENTS = Dataset(
     enums=(("doc_type", DOC_TYPES),),
 )
 
+CALL_SOURCE_KINDS = frozenset({"analyst", "desk", "verdict"})
+HORIZONS = frozenset({"short", "mid", "long"})
+DIRECTIONS = frozenset({"positive", "negative", "neutral"})
+VERDICT_CALLS = frozenset({"consider", "avoid", "no_call"})
+
+# What the engine said, recorded on the day it said it (after market close, never backfilled),
+# so it can be scored later against what really happened. published_at = when it was recorded.
+CALLS = Dataset(
+    name="calls",
+    version=1,
+    fields=(
+        _f("as_of", pa.date32()),  # the IST trading day the call was made on
+        _f("instrument_id", pa.string()),
+        _f("symbol", pa.string()),
+        _f("source_kind", pa.string()),  # analyst / desk / verdict
+        _f("source_id", pa.string()),  # analyst id, desk unit, or "verdict"
+        _f("horizon", pa.string()),
+        _f("direction", pa.string()),  # for a verdict: consider -> positive, avoid -> negative, no_call -> neutral
+        _f("call", pa.string(), required=False),  # verdict only: the exact call
+        _f("strength", pa.float64(), required=False),  # verdicts have none
+        _f("confidence", pa.float64()),
+        _f("close_price", pa.float64()),  # the stock's close on as_of, INR
+        _f("weights_version", pa.string(), required=False),  # desk rows only
+        _f("code_version", pa.string()),  # git commit, "-dirty" if the code had uncommitted changes
+        _f("report_json", pa.string()),  # the full report the row came from
+    ),
+    key=("as_of", "instrument_id", "source_kind", "source_id", "horizon"),
+    partition_by="as_of",
+    enums=(("source_kind", CALL_SOURCE_KINDS), ("horizon", HORIZONS), ("direction", DIRECTIONS), ("call", VERDICT_CALLS)),
+)
+
 DATASETS: dict[str, Dataset] = {
     d.name: d
-    for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS)
+    for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS, CALLS)
 }

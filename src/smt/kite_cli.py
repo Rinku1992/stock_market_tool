@@ -5,6 +5,7 @@
     python -m smt.kite_cli holdings [--account main]
     python -m smt.kite_cli prices-holdings [--account main]
     python -m smt.kite_cli prices-index [--index IDX:NIFTY100]
+    python -m smt.kite_cli update-prices [--account main]   # last 10 days for everything already loaded
 
 Reads KITE_API_KEY and KITE_API_SECRET from .env. Run `login` once each day.
 """
@@ -29,6 +30,7 @@ from smt.sources.kite import (IST, KiteClient, KiteDailyPrices, KiteError, KiteH
 
 CALLBACK_HOST, CALLBACK_PORT, CALLBACK_PATH = "127.0.0.1", 8000, "/kite/callback"
 CHUNK_DAYS = 365  # days per request. Kept small on purpose; raise it once the real limit is confirmed.
+UPDATE_DAYS = 10  # update-prices pulls this many calendar days back
 PAUSE = 0.4  # seconds between calls, to stay under the documented 3 requests per second
 EXCHANGES = ("NSE", "BSE")
 
@@ -173,6 +175,30 @@ def cmd_prices_index(args) -> None:
     print(f"Prices loaded for {done} of {len(members)} members. Failed: {len(failed)}" + (f" ({', '.join(failed)})" if failed else ""))
 
 
+def update_targets(lake: Lake, account: str = "main") -> list[tuple[str, str | None]]:
+    """What update-prices refreshes: the Nifty 100 members, your holdings and the Nifty 50 index. Each once."""
+    out = {"IDX:NIFTY50": "NIFTY 50"}
+    for isin, sym in index_members(lake, "IDX:NIFTY100") + latest_holdings(lake, account):
+        out.setdefault(isin, sym)
+    return list(out.items())
+
+
+def update_window(now: datetime) -> tuple[date, date]:
+    """Last UPDATE_DAYS days, up to today if the market has closed (15:30 IST), else up to yesterday."""
+    now = now.astimezone(IST)
+    end = now.date() if (now.hour, now.minute) >= (15, 30) else now.date() - timedelta(days=1)
+    return end - timedelta(days=UPDATE_DAYS), end
+
+
+def cmd_update_prices(args) -> None:
+    client, lake = _client(), _lake()
+    targets = update_targets(lake, args.account)
+    start, end = update_window(datetime.now(IST))
+    print(f"Updating prices {start} to {end} for {len(targets)} instruments (Nifty 100, holdings, Nifty 50)")
+    done, failed = load_prices_for(client, lake, targets, start, end)
+    print(f"Updated {done} of {len(targets)}. Failed: {len(failed)}" + (f" ({', '.join(failed)})" if failed else ""))
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     yesterday = datetime.now(IST).date() - timedelta(days=1)  # today's candle is not final until close
@@ -201,6 +227,9 @@ def main(argv: list[str] | None = None) -> None:
     pi.add_argument("--index", default="IDX:NIFTY100")
     dates(pi)
     pi.set_defaults(fn=cmd_prices_index)
+    up = sub.add_parser("update-prices", help="pull the last 10 days for everything already loaded")
+    up.add_argument("--account", default="main")
+    up.set_defaults(fn=cmd_update_prices)
     args = p.parse_args(argv)
     args.fn(args)
 
