@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Financial trend on your top 10 holdings", "Equity research. Loading 5 quarters of filings for your 10 largest holdings, so growth and trends can be computed."],
+  now: ["Stock type router + finance-company playbook", "Router. M&MFIN showed that lenders need different metrics: loan growth, interest margin, credit cost, borrowings under other names."],
   next: ["Calibration officer (learning loop)", "Track record office. Re-scores each analyst on real outcomes and updates desk weights, so desks improve over time."],
-  you: ["Check TITAN and M&MFIN", "Rerun smt.cli for TITAN (one-offs now shown) and M&MFIN (a finance company). Sep 2026 for ASHOKLEY and TMPV is not on NSE yet."]
+  you: ["One M&MFIN file", "Upload the Sep 2026 M&MFIN XBRL file, so the finance-company reader is built from the real tags."]
 };
 const LOG = [
+  ["13 Nov", "TITAN and M&MFIN figures checked against news: they match. Bug fixed: missing borrowings were shown as zero debt."],
   ["13 Nov", "Financial trend now shows exceptional items, core profit growth, and flags big profit jumps and negative operating cash."],
   ["13 Nov", "38 results filings loaded for 8 of your top 10 holdings (5 quarters each for most)."],
   ["13 Nov", "Top-holdings command: lists your 10 largest holdings by money invested and which quarters are loaded."],
@@ -203,7 +204,7 @@ const UNITS = [
     ["Point-in-time librarian", "C", "Makes sure backtests only see what was known on each date."],
     ["Input guard", "C", "Treats news and web text as untrusted and blocks hidden instructions."] ] },
   { n: "R", t: "Router", q: "Labels the stock so each desk uses the right playbook.", a: [
-    ["Stock type router", "C", "Bank, insurer, IT, pharma, commodity, real estate, holding company or new-age."],
+    ["Stock type router", "C", "Bank, insurer, IT, pharma, commodity, real estate, holding company or new-age.", 3],
     ["Sector playbooks", "C", "Swaps the metrics per type, for example bad loans and deposits for banks."] ] },
   { n: "1", t: "Market news research", q: "What is happening to the company, and does it matter?", a: [
     ["Event clusterer", "B", "Turns many articles on one story into one event."],
