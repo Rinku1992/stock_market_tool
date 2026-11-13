@@ -73,6 +73,11 @@ Newest at the bottom. One entry per choice, with the reason.
   Nifty 100, the whole list beat the Nifty 50 (survivorship bias, strong Next 50), so beating the
   Nifty 50 said little about a rule. Against the same-date median, a rule must pick better than
   its own universe. `--vs nifty` keeps the old test.
+- **Price signals are context, not verdict inputs (13 Nov 2026).** Against the median Nifty 100
+  stock, neither the SMA rule nor momentum separates winners from losers at the median (gaps of
+  0.2 to 1.2 points, hit rates about 50%). Momentum's higher mean comes from a few big winners.
+  Both analysts still run and report facts, with confidence capped, but the scoring engine will
+  not use them until a test shows an edge.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

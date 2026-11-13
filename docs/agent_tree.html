@@ -173,11 +173,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Fairer backtest scoring", "Backtest engine (shared tool). Scores each view against the median of all stocks on the same date, not the Nifty 50. Used to test Price structure and Momentum."],
-  next: ["Financial trend analyst", "Equity research. The first analyst that reads company financials: margins, ROCE, debt, cash conversion."],
-  you: ["Reliance results filing", "Download the latest quarterly results file (XBRL) for Reliance from NSE and upload it, so the parser is built from a real file."]
+  now: ["Financial trend analyst", "Equity research. Building the reader for NSE results files (XBRL) as soon as the sample files arrive."],
+  next: ["Market activity desk lead", "Code combines the 4 analysts into one desk view; an LLM writes a checked summary. Needs your OK."],
+  you: ["Two XBRL files, and an OK", "Upload Reliance's XBRL for Dec 2024 (consolidated) and the latest quarter. Say yes or no to the desk lead design."]
 };
 const LOG = [
+  ["13 Nov", "Fair test on the Nifty 100: neither price rule beats the median stock. Both kept as context only, not verdict inputs."],
   ["13 Nov", "Fairer backtest scoring built (median of all stocks as the benchmark)."],
   ["13 Nov", "Nifty 100 backtest: Momentum shows a small 6 to 12 month edge. Price structure shows none."],
   ["13 Nov", "Nifty 100 member list and 5 years of prices for all 100 stocks loaded."],
@@ -222,8 +223,8 @@ const UNITS = [
     ["Macro regime", "C", "Rates, liquidity and rupee regime. Sets how much each desk counts."],
     ["Peer read-through", "B", "Uses results from peers that reported earlier."] ] },
   { n: "4", t: "Market activity and ownership research", q: "What are the price and the big holders telling us?", a: [
-    ["Price structure", "C", "Trend versus 50 and 200-day averages, and versus the Nifty 50. No edge found yet on the Nifty 100.", 2],
-    ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100. Small 6-12 month edge so far.", 2],
+    ["Price structure", "C", "Trend versus 50 and 200-day averages. No edge versus the median Nifty 100 stock. Context only.", 2],
+    ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100. Typical case is a coin flip. Context only.", 2],
     ["Liquidity", "C", "Daily traded value: can you exit without moving the price?", 1],
     ["Market beta", "C", "How much of the stock's move is just the market.", 1],
     ["Ownership", "C", "Promoter, FII, DII and mutual fund stake changes, and pledges."],
