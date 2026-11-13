@@ -160,3 +160,12 @@ def test_big_profit_jump_shows_one_offs_and_core_growth(tmp_path):
     assert "net profit +100.0%" in f and "Exceptional items: Rs 0 crore this quarter, Rs -40 crore a year ago." in f
     assert "Profit before tax and exceptional items +10.0%." in f
     assert "look for one-offs" in f and "operating cash flow is negative" in f
+
+
+def test_missing_borrowings_are_not_reported_as_zero(tmp_path):
+    lake = Lake(tmp_path / "lake")
+    _load(lake, tmp_path, "nbfc.xml", facts=PL, bs=[("Equity", 4000), ("CashAndCashEquivalents", 300)])
+    ctx = AnalystContext(symbol="X", as_of=date(2025, 2, 1), store=FeatureStore(), lake=lake, instrument_id="INE002A01018")
+    r = financial_trend(ctx)
+    assert "borrowings not found" in r.finding and "debt to equity" not in r.finding
+    assert any("debt: borrowings not found" in g for g in r.could_not_check)

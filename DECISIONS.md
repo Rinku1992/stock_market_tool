@@ -99,6 +99,13 @@ Newest at the bottom. One entry per choice, with the reason.
 - **financials period_type gains H, N and I** (half year to date, nine months to date, balance-sheet
   date). Allowed contract change: new enum values.
 - **financial_trend gives facts only, no direction,** until enough filed history is loaded to test a rule.
+- **A missing line item is never treated as zero (13 Nov 2026).** Bug found on M&MFIN: the NBFC
+  filing has no "BorrowingsNoncurrent/Current" tags, and the analyst reported debt of Rs 0 crore.
+  Now it says the borrowings were not found and lists it as a data gap.
+- **Verified against news on 13 Nov 2026:** TITAN Q2 FY27 net profit Rs 2,393 crore vs Rs 1,120 crore
+  and M&MFIN consolidated profit Rs 911 crore vs Rs 566 crore match our parsed filings. TITAN's
+  jump includes a non-operating fair-value gain that is not tagged as an exceptional item, so
+  "exceptional items" alone cannot catch every one-off.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

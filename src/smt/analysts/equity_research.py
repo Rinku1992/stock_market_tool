@@ -91,11 +91,17 @@ def financial_trend(ctx: AnalystContext) -> AnalystReport:
     if bs_dates:
         b = bs_dates[-1]
         eq = _pick(rows, b, "I", "equity")
-        debt = sum(_pick(rows, b, "I", k) or 0.0 for k in ("borrowings_noncurrent", "borrowings_current"))
+        found = [v for k in ("borrowings_noncurrent", "borrowings_current") if (v := _pick(rows, b, "I", k)) is not None]
         cash = sum(_pick(rows, b, "I", k) or 0.0 for k in ("cash", "current_investments"))
-        parts.append(f"Balance sheet on {b}: borrowings {_crore(debt)}, cash and current investments {_crore(cash)}, "
-                     f"net debt {_crore(debt - cash)}, debt to equity {debt / eq:.2f}.")
-        features.update({"fin_debt_to_equity": debt / eq, "fin_net_debt": debt - cash})
+        if found:
+            debt = sum(found)
+            parts.append(f"Balance sheet on {b}: borrowings {_crore(debt)}, cash and current investments {_crore(cash)}, "
+                         f"net debt {_crore(debt - cash)}, debt to equity {debt / eq:.2f}.")
+            features.update({"fin_debt_to_equity": debt / eq, "fin_net_debt": debt - cash})
+        else:
+            # a missing tag is not zero debt: lenders and banks file borrowings under other names
+            parts.append(f"Balance sheet on {b}: borrowings not found under the usual names, so debt is not reported.")
+            gaps.append("debt: borrowings not found in the filing (financial companies use other line names)")
     else:
         gaps.append("balance sheet: not in the loaded filings")
 
