@@ -12,7 +12,7 @@ from pathlib import Path
 
 import duckdb
 
-from smt.schema import AnalystReport
+from smt.schema import AnalystReport, DeskReport
 
 _ORIGINS = {"code", "llm"}
 
@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS features (
 CREATE TABLE IF NOT EXISTS reports (
     run_id VARCHAR NOT NULL,
     analyst_id VARCHAR NOT NULL,
+    symbol VARCHAR NOT NULL,
+    as_of DATE NOT NULL,
+    body VARCHAR NOT NULL,
+    inserted_at TIMESTAMP NOT NULL
+);
+CREATE TABLE IF NOT EXISTS desk_reports (
+    run_id VARCHAR NOT NULL,
+    unit VARCHAR NOT NULL,
     symbol VARCHAR NOT NULL,
     as_of DATE NOT NULL,
     body VARCHAR NOT NULL,
@@ -114,6 +122,17 @@ class FeatureStore:
     def count_reports(self, run_id: str) -> int:
         with self._lock:
             return self._con.execute("SELECT count(*) FROM reports WHERE run_id = ?", [run_id]).fetchone()[0]
+
+    def save_desk_report(self, report: DeskReport, run_id: str) -> None:
+        with self._lock:
+            self._con.execute(
+                "INSERT INTO desk_reports VALUES (?,?,?,?,?,?)",
+                [run_id, report.unit, report.symbol, report.as_of, report.model_dump_json(), _now()],
+            )
+
+    def count_desk_reports(self, run_id: str) -> int:
+        with self._lock:
+            return self._con.execute("SELECT count(*) FROM desk_reports WHERE run_id = ?", [run_id]).fetchone()[0]
 
     def log_llm_call(self, *, task: str, model: str, system: str | None, prompt: str, response: str) -> str:
         """The recorder. Every LLM output is saved with a timestamp."""

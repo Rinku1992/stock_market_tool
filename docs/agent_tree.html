@@ -104,6 +104,8 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 .unit-head .q { color: var(--muted); font-size: 13.5px; flex: 1 1 260px; }
 .unit-head .count { font: 500 12px/1 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .unit-head .count em { font-style: normal; color: var(--built); }
+.lead { font: 500 11px/1 var(--font-mono); border-radius: 5px; padding: 3px 5px; border: 1px dashed var(--chip-border); color: var(--muted); }
+.lead.on { border: 1px solid var(--built); color: var(--built); }
 .veto { font: 500 11px/1 var(--font-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 5px; padding: 3px 5px; }
 
 .leaves { list-style: none; margin: 0 0 0 18px; padding: 10px 0 0 30px; }
@@ -156,7 +158,7 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 
   <section class="root" aria-label="Orchestrator">
     <h2>Orchestrator</h2>
-    <p>Runs the same fixed path for every stock. No AI decides which analyst runs next, so the same input gives the same answer.</p>
+    <p>Runs the same fixed path for every stock. No AI decides which analyst runs next, so the same input gives the same answer. Each unit has a desk lead: code combines its analysts with weights learned from results, and an LLM writes a summary that code checks.</p>
     <div class="flow" aria-label="Order of work">
       <span>1 Data office</span><span>2 Router</span><span>3 Research desks, in parallel</span><span>4 Independent review</span><span>5 Judgement</span><span>6 Verdict per horizon</span>
     </div>
@@ -173,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Financial trend analyst", "Equity research. Building the reader for NSE results files (XBRL) as soon as the sample files arrive."],
-  next: ["Market activity desk lead", "Code combines the 4 analysts into one desk view; an LLM writes a checked summary. Needs your OK."],
-  you: ["Two XBRL files, and an OK", "Upload Reliance's XBRL for Dec 2024 (consolidated) and the latest quarter. Say yes or no to the desk lead design."]
+  now: ["Financial trend analyst", "Equity research. Building the reader for NSE results files (XBRL). Both sample files received."],
+  next: ["Calibration officer (learning loop)", "Track record office. Re-scores each analyst on real outcomes and updates desk weights, so desks improve over time."],
+  you: ["One more XBRL file", "The Dec 2024 file you sent is Standalone. Please also upload the Consolidated one from the same row pair."]
 };
 const LOG = [
+  ["13 Nov", "Market activity desk lead built: code combines the 4 analysts using versioned weights; LLM summary is checked by code."],
   ["13 Nov", "Fair test on the Nifty 100: neither price rule beats the median stock. Both kept as context only, not verdict inputs."],
   ["13 Nov", "Fairer backtest scoring built (median of all stocks as the benchmark)."],
   ["13 Nov", "Nifty 100 backtest: Momentum shows a small 6 to 12 month edge. Price structure shows none."],
@@ -222,7 +225,7 @@ const UNITS = [
     ["Geopolitical exposure", "B", "Revenue by country, import dependence, tariff risk."],
     ["Macro regime", "C", "Rates, liquidity and rupee regime. Sets how much each desk counts."],
     ["Peer read-through", "B", "Uses results from peers that reported earlier."] ] },
-  { n: "4", t: "Market activity and ownership research", q: "What are the price and the big holders telling us?", a: [
+  { n: "4", t: "Market activity and ownership research", q: "What are the price and the big holders telling us?", lead: 1, a: [
     ["Price structure", "C", "Trend versus 50 and 200-day averages. No edge versus the median Nifty 100 stock. Context only.", 2],
     ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100. Typical case is a coin flip. Context only.", 2],
     ["Liquidity", "C", "Daily traded value: can you exit without moving the price?", 1],
@@ -261,7 +264,7 @@ const UNITS = [
 ];
 const TOOLS = [
   ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
-  ["Nifty 100 member list", 1], ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
+  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 0], ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
 ];
 const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
 
@@ -284,6 +287,7 @@ for (const u of UNITS) {
   total += u.a.length; built += b; testing += u.a.filter(x => x[3] === 2).length;
   head.append(el("h3", null, u.t), el("span", "q", u.q));
   if (u.veto) head.append(el("span", "veto", "Has veto"));
+  head.append(el("span", "lead" + (u.lead ? " on" : ""), u.lead ? "Desk lead: built" : "Desk lead: planned"));
   const count = el("span", "count", u.a.length + " analysts");
   if (b) { const em = el("em", null, " · " + b + " built"); count.append(em); }
   head.append(count);

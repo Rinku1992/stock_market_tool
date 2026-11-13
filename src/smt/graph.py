@@ -3,6 +3,8 @@
 Fixed path, fixed branches. No LLM decides which analyst runs next.
 
     data office -> (grade C: refuse) -> router -> desks in parallel -> review -> verdict
+
+Each desk runs its analysts, then its desk lead turns their reports into one DeskReport.
 """
 
 import operator
@@ -15,8 +17,9 @@ from langgraph.graph import END, START, StateGraph
 from smt.analysts import DESKS
 from smt.analysts.base import Analyst, AnalystContext
 from smt.data.lake import Lake
+from smt.desks.lead import lead_report
 from smt.llm import LLMClient
-from smt.schema import AnalystReport, Call, DataGrade, Horizon, HorizonVerdict, Verdict
+from smt.schema import AnalystReport, Call, DataGrade, DeskReport, Horizon, HorizonVerdict, Verdict
 from smt.store import FeatureStore
 
 
@@ -28,6 +31,7 @@ class RunState(TypedDict, total=False):
     data_grade: DataGrade
     stock_type: str
     reports: Annotated[list[AnalystReport], operator.add]
+    desk_reports: Annotated[list[DeskReport], operator.add]
     verdict: Verdict
 
 
@@ -83,13 +87,15 @@ def build_graph(
     def router(state: RunState) -> dict:
         return {"stock_type": router_fn(ctx_of(state))}
 
-    def make_desk(analysts: list[Analyst]):
+    def make_desk(unit: str, analysts: list[Analyst]):
         def desk(state: RunState) -> dict:
             ctx = ctx_of(state)
             out = [a(ctx) for a in analysts]
             for r in out:
                 store.save_report(r, state["run_id"])
-            return {"reports": out}
+            lead = lead_report(unit, state["symbol"], state["as_of"], out, llm)
+            store.save_desk_report(lead, state["run_id"])
+            return {"reports": out, "desk_reports": [lead]}
 
         return desk
 
@@ -123,7 +129,7 @@ def build_graph(
     desk_nodes = []
     for unit, analysts in desks.items():
         node = f"desk_{unit}"
-        g.add_node(node, make_desk(analysts))
+        g.add_node(node, make_desk(unit, analysts))
         g.add_edge("router", node)
         desk_nodes.append(node)
     g.add_edge(desk_nodes, "review")
@@ -136,4 +142,4 @@ def run(symbol: str, as_of: date, store: FeatureStore, llm: LLMClient | None = N
         instrument_id: str | None = None, **kwargs) -> RunState:
     graph = build_graph(store, llm, lake, **kwargs)
     return graph.invoke({"run_id": uuid.uuid4().hex, "symbol": symbol.upper(), "instrument_id": instrument_id,
-                         "as_of": as_of, "reports": []})
+                         "as_of": as_of, "reports": [], "desk_reports": []})

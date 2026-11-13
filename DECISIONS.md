@@ -78,6 +78,15 @@ Newest at the bottom. One entry per choice, with the reason.
   0.2 to 1.2 points, hit rates about 50%). Momentum's higher mean comes from a few big winners.
   Both analysts still run and report facts, with confidence capped, but the scoring engine will
   not use them until a test shows an edge.
+- **Desk lead = code decides, LLM explains, code checks the LLM (13 Nov 2026).** The desk view
+  per horizon is a weighted mix of its analysts' views. The LLM only writes a summary; code
+  rejects it if it holds a number not in the analyst reports, a bullet without an analyst
+  citation, or advice words, and then uses a plain summary built by code.
+- **The desk learns through versioned weights, not through LLM judgement.** Weights live in
+  `src/smt/desks/weights/<unit>.json`, each version naming the test it came from. Market activity
+  starts at weight 0 for all four analysts, because none has shown an edge. The planned
+  calibration step will re-score analysts on new outcomes (and by market regime) and write new
+  versions. An LLM may later propose new rules, but each must pass a backtest and the owner's OK.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

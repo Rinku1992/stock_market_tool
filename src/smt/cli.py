@@ -43,6 +43,17 @@ def main(argv: list[str] | None = None) -> None:
         print(f"    views -> {views}")
         for n in r.could_not_check:
             print(f"    note  -> {n}")
+    for d in state.get("desk_reports", []):
+        if not d.facts:
+            continue
+        print(f"\nDesk lead: {d.unit}  (weights version {d.weights_version}, summary by {d.summary_source})")
+        print("  views -> " + ", ".join(f"{x.horizon.value}: {x.direction.value}" for x in d.views))
+        for c in d.conflicts:
+            print(f"  conflict ({c.horizon.value}) -> positive: {', '.join(c.positive)}; negative: {', '.join(c.negative)}")
+        for line in d.summary.splitlines():
+            print(f"  {line}")
+        if d.summary_rejected:
+            print(f"  (LLM summary rejected: {d.summary_rejected[0]})")
     print("\nVerdict")
     for h in v.horizons:
         print(f"- {h.horizon.value}: {h.call.value} ({'; '.join(h.reasons)})")

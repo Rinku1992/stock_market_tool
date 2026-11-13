@@ -6,6 +6,8 @@ Rule enforced here: no directional claim without evidence.
 from datetime import date, datetime, timezone
 from enum import Enum
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -76,6 +78,36 @@ class AnalystReport(BaseModel):
             raise ValueError("a directional view needs at least one evidence item")
         if any(e.as_of > self.as_of for e in self.evidence):
             raise ValueError("evidence dated after the report as_of date (look-ahead)")
+        return self
+
+
+class Conflict(BaseModel):
+    horizon: Horizon
+    positive: list[str]
+    negative: list[str]
+
+
+class DeskReport(BaseModel):
+    """What a desk lead hands the orchestrator. Views come from code; the summary is for people."""
+
+    unit: str
+    symbol: str
+    as_of: date
+    views: list[HorizonView]
+    analysts: list[str] = Field(default_factory=list)
+    facts: list[str] = Field(default_factory=list)
+    conflicts: list[Conflict] = Field(default_factory=list)
+    data_gaps: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    weights_version: str
+    summary: str
+    summary_source: Literal["llm", "template"]
+    summary_rejected: list[str] = Field(default_factory=list)  # why an LLM summary was thrown out, if it was
+
+    @model_validator(mode="after")
+    def _check(self) -> "DeskReport":
+        if sorted(v.horizon.value for v in self.views) != sorted(h.value for h in Horizon):
+            raise ValueError("views must hold exactly one entry per horizon")
         return self
 
 
