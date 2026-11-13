@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> None:
     state = run(args.symbol, args.as_of, store, lake=lake, instrument_id=isin)
 
     v = state["verdict"]
-    print(f"\n{v.symbol} as of {v.as_of}  |  data grade {v.data_grade.value}")
+    print(f"\n{v.symbol} as of {v.as_of}  |  data grade {v.data_grade.value}  |  stock type {v.stock_type or 'n/a'}")
     if v.refused_reason:
         print(f"REFUSED: {v.refused_reason}")
         return

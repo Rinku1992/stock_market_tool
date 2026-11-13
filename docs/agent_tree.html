@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Stock type router + finance-company playbook", "Router. M&MFIN showed that lenders need different metrics: loan growth, interest margin, credit cost, borrowings under other names."],
+  now: ["Stock type router + finance-company playbook: built, awaiting your review", "Router labels each stock lender or general from its filing tags. Lenders get loans, borrowings by name, net interest income, credit cost and debt to net worth. Checked on M&MFIN."],
   next: ["Calibration officer (learning loop)", "Track record office. Re-scores each analyst on real outcomes and updates desk weights, so desks improve over time."],
-  you: ["One M&MFIN file", "Upload the Sep 2026 M&MFIN XBRL file, so the finance-company reader is built from the real tags."]
+  you: ["One bank results file", "Upload one bank's results XBRL (for example HDFCBANK), so the router can be checked on bank tag names. Banks are not verified yet."]
 };
 const LOG = [
+  ["13 Nov", "Stock type router built (code, no LLM): M&MFIN is a lender, the other 7 stocks are general. Lender playbook for financial trend: loans Rs 152,771 cr, debt to net worth 5.43, credit cost 1.65% of loans a year. TITAN output unchanged."],
   ["13 Nov", "TITAN and M&MFIN figures checked against news: they match. Bug fixed: missing borrowings were shown as zero debt."],
   ["13 Nov", "Financial trend now shows exceptional items, core profit growth, and flags big profit jumps and negative operating cash."],
   ["13 Nov", "38 results filings loaded for 8 of your top 10 holdings (5 quarters each for most)."],
@@ -204,7 +205,7 @@ const UNITS = [
     ["Point-in-time librarian", "C", "Makes sure backtests only see what was known on each date."],
     ["Input guard", "C", "Treats news and web text as untrusted and blocks hidden instructions."] ] },
   { n: "R", t: "Router", q: "Labels the stock so each desk uses the right playbook.", a: [
-    ["Stock type router", "C", "Bank, insurer, IT, pharma, commodity, real estate, holding company or new-age.", 3],
+    ["Stock type router", "C", "Lender or general, from the tags in the company's own filings. Shows which tags made the call. Banks not verified yet; other types later.", 1],
     ["Sector playbooks", "C", "Swaps the metrics per type, for example bad loans and deposits for banks."] ] },
   { n: "1", t: "Market news research", q: "What is happening to the company, and does it matter?", a: [
     ["Event clusterer", "B", "Turns many articles on one story into one event."],

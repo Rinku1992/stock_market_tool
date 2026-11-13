@@ -34,6 +34,8 @@ CANONICAL = {
     "Expenses": ("pl", "total_expenses"),
     "EmployeeBenefitExpense": ("pl", "employee_cost"),
     "FinanceCosts": ("pl", "finance_costs"),
+    "InterestEarned": ("pl", "interest_income"),  # lenders
+    "ImpairmentOnFinancialInstruments": ("pl", "credit_cost"),  # lenders
     "DepreciationDepletionAndAmortisationExpense": ("pl", "depreciation"),
     "ProfitBeforeExceptionalItemsAndTax": ("pl", "pbt_before_exceptional"),
     "ExceptionalItemsBeforeTax": ("pl", "exceptional_items"),
@@ -61,6 +63,12 @@ CANONICAL = {
     "NonControllingInterest": ("bs", "minority_interest"),
     "BorrowingsNoncurrent": ("bs", "borrowings_noncurrent"),
     "BorrowingsCurrent": ("bs", "borrowings_current"),
+    # Lenders (NBFC results taxonomy, checked on M&MFIN files, Nov 2026)
+    "Loans": ("bs", "loans"),
+    "Borrowings": ("bs", "borrowings_other_than_debt_securities"),
+    "DebtSecurities": ("bs", "debt_securities"),
+    "Deposits": ("bs", "deposits"),
+    "SubordinatedLiabilities": ("bs", "subordinated_liabilities"),
     # Cash flow
     "CashFlowsFromUsedInOperatingActivities": ("cf", "cfo"),
     "CashFlowsFromUsedInInvestingActivities": ("cf", "cfi"),

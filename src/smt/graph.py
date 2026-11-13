@@ -19,6 +19,7 @@ from smt.analysts.base import Analyst, AnalystContext
 from smt.data.lake import Lake
 from smt.desks.lead import lead_report
 from smt.llm import LLMClient
+from smt.router import stock_type_router
 from smt.schema import AnalystReport, Call, DataGrade, DeskReport, Horizon, HorizonVerdict, Verdict
 from smt.store import FeatureStore
 
@@ -43,17 +44,13 @@ def _default_grade(ctx: AnalystContext) -> DataGrade:
     return DataGrade.B  # placeholder until the data office is built (phase 1)
 
 
-def _default_router(ctx: AnalystContext) -> str:
-    return "unknown"  # placeholder until the stock type router is built (phase 2)
-
-
 def build_graph(
     store: FeatureStore,
     llm: LLMClient | None = None,
     lake: Lake | None = None,
     desks: dict[str, list[Analyst]] | None = None,
     grade_fn: GradeFn = _default_grade,
-    router_fn: RouterFn = _default_router,
+    router_fn: RouterFn = stock_type_router,
 ):
     desks = desks if desks is not None else DESKS
 
