@@ -152,3 +152,11 @@ Newest at the bottom. One entry per choice, with the reason.
   - Weights are written only with --write, as a new dated version; the old file is kept in
     desks/weights/history/. Known limit: monthly views overlap in time, so cases are not fully
     independent. The 3-period check is there partly for this.
+- **First calibration run, market_activity on the Nifty 100 (13 Nov 2026), not written.** Monthly views
+  Feb 2022 to Jun 2026, scored against the median stock. No analyst passes, so every weight stays 0,
+  the same as the current file. Momentum 6-12 months: edge +1.2 points overall, but +18.1, -5.2 and
+  -1.6 points in the three periods, and it beats only 92% of shuffles, so the whole edge came from one
+  early period. Price structure: edge -0.9 points (3-5 months) and 0.0 (6-12 months). Liquidity and
+  market beta give no direction. Regime (report only): price structure 3-5 months was +0.3 points
+  with the Nifty above its 200-day average and -3.4 points below it. Weights are not written until the
+  owner says so.

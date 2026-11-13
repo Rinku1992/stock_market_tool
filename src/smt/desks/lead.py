@@ -11,8 +11,8 @@ What explains (LLM, optional):
   every bullet must cite a real analyst, and no advice words are allowed. If the check fails,
   or there is no LLM, a plain summary built by code is used instead.
 
-How it learns: the weights file is the learning surface. The calibration step (planned) will
-re-score each analyst on new outcomes and write a new version. Nothing an LLM says changes
+How it learns: the weights file is the learning surface. The calibration officer (smt.calibrate)
+re-scores each analyst on measured outcomes and, with --write, saves a new version. Nothing an LLM says changes
 a weight.
 """
 

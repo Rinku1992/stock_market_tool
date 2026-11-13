@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Calibration officer (learning loop)", "Track record office. Next build task, to be done from your Claude terminal."],
+  now: ["Calibration officer: built, weights not written yet", "Sets desk weights from measured edge with rules fixed in advance. On the Nifty 100 no market activity analyst passes, so all weights stay 0. Waiting for your OK before writing."],
   next: ["Bank playbook", "Router. Needs one bank results file to check bank tag names."],
   you: ["One bank results file", "Upload one bank's results XBRL (for example HDFCBANK), so the router can be checked on bank tag names. Banks are not verified yet."]
 };
 const LOG = [
+  ["13 Nov", "Calibration officer built (code, no LLM): needs 300+ cases, a steady edge in 3 time periods and a shuffle test. Nifty 100 run: no market activity analyst passes, all weights 0. Momentum's 6-12 month edge came from the first period only."],
   ["13 Nov", "Router and lender playbook reviewed: M&MFIN net interest income, credit cost and debt to net worth match the expected values. Pushed and checked on a fresh copy (111 tests)."],
   ["13 Nov", "Stock type router built (code, no LLM): M&MFIN is a lender, the other 7 stocks are general. Lender playbook for financial trend: loans Rs 152,771 cr, debt to net worth 5.43, credit cost 1.65% of loans a year. TITAN output unchanged."],
   ["13 Nov", "TITAN and M&MFIN figures checked against news: they match. Bug fixed: missing borrowings were shown as zero debt."],
@@ -264,7 +265,7 @@ const UNITS = [
     ["Scenarios", "B", "Bull, base and bear ranges, not one number."] ] },
   { n: "8", t: "Track record office", q: "Keeps the engine honest over time.", a: [
     ["Call logger", "C", "Saves every verdict with its date, price and reasons."],
-    ["Calibration officer", "C", "Lowers confidence where past calls turned out wrong."] ] },
+    ["Calibration officer", "C", "Sets each analyst's desk weight from its measured edge: 300+ cases, steady in 3 time periods, beats a shuffle test. Market regime reported, not yet used.", 1] ] },
   { n: "S", t: "System", q: "Keeps the engine running after a verdict.", a: [
     ["Sentinel", "C", "Watches the conditions behind a view and alerts when one breaks."],
     ["Depth controller", "C", "Chooses a quick scan or a full run, to control cost and time."] ] }
