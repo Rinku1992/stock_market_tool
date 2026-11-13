@@ -1,6 +1,7 @@
 """Run the engine for one stock.
 
-    python -m smt.cli RELIANCE --isin INE002A01018 [--as-of 2026-11-11]
+    python -m smt.cli TITAN [--as-of 2026-11-11]
+    python -m smt.cli SOMESTOCK --isin INE000X01010   # only if the symbol is not in your holdings or the Nifty 100
 
 Load prices first (see `python -m smt.kite_cli`). For strength versus the market, also load the index:
     python -m smt.kite_cli prices "NIFTY 50" IDX:NIFTY50
@@ -13,6 +14,7 @@ from datetime import date
 from dotenv import load_dotenv
 
 from smt.data.lake import Lake
+from smt.data.members import symbol_to_isin
 from smt.graph import run
 from smt.store import FeatureStore
 
@@ -21,13 +23,16 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     p = argparse.ArgumentParser(prog="smt.cli")
     p.add_argument("symbol")
-    p.add_argument("--isin", help="ISIN of the stock. Needed until the symbol-to-ISIN list is loaded.")
+    p.add_argument("--isin", help="ISIN, only if the symbol is not in your holdings or the Nifty 100 list")
     p.add_argument("--as-of", type=date.fromisoformat, default=date.today())
     args = p.parse_args(argv)
 
     store = FeatureStore(os.environ.get("SMT_DB_PATH", "data/smt.duckdb"))
     lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
-    state = run(args.symbol, args.as_of, store, lake=lake, instrument_id=args.isin.upper() if args.isin else None)
+    isin = args.isin.upper() if args.isin else symbol_to_isin(lake).get(args.symbol.upper())
+    if not isin:
+        p.error(f"{args.symbol.upper()} is not in your holdings or the Nifty 100 list. Add --isin.")
+    state = run(args.symbol, args.as_of, store, lake=lake, instrument_id=isin)
 
     v = state["verdict"]
     print(f"\n{v.symbol} as of {v.as_of}  |  data grade {v.data_grade.value}")

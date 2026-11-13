@@ -57,3 +57,12 @@ def test_top_holdings_by_money_invested(tmp_path):
     top = top_holdings(lake, 2)
     assert [s for _, s, _ in top] == ["BIG", "MID"]  # 5,000 and 2,000 invested; SMALL has 1,000
     assert round(top[0][2], 3) == 0.625
+
+
+def test_symbol_to_isin_uses_the_index_list(tmp_path):
+    from smt.data.members import symbol_to_isin
+    f = tmp_path / "list.csv"
+    f.write_bytes(GOOD)
+    lake = Lake(tmp_path / "lake")
+    ingest(NseIndexListFile(f, "IDX:NIFTY100", date(2026, 11, 1)), lake)
+    assert symbol_to_isin(lake)["INFY"] == "INE009A01021"

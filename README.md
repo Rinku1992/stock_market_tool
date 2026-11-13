@@ -26,7 +26,7 @@ scoring engine and backtest are built. See the status table in the blueprint.
 ## Run
 
     pytest                    # all tests
-    python -m smt.cli RELIANCE --isin INE002A01018
+    python -m smt.cli RELIANCE
 
 ## Kite data (run on your own machine)
 

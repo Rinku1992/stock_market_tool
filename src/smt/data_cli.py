@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 from smt.data.adapter import ingest
 from smt.data.lake import Lake
-from smt.data.members import index_members
+from smt.data.members import index_members, symbol_to_isin
 from smt.data.holdings import latest_holdings, loaded_quarters, top_holdings
 from smt.sources.nse_files import NseIndexListFile
 from smt.sources.nse_results import IST, NseResultsXbrlFile, parse_results_xbrl
@@ -31,14 +31,6 @@ def find_gaps(lake: Lake, instrument_id: str, pct: float = 20.0) -> list[tuple]:
         WHERE prev_close IS NOT NULL AND abs(close / prev_close - 1) * 100 > ?
         ORDER BY trade_date"""
     return lake.query(sql, [instrument_id, pct])
-
-
-def symbol_to_isin(lake: Lake) -> dict[str, str]:
-    known = {}
-    for isin, sym in latest_holdings(lake) + index_members(lake, "IDX:NIFTY100"):
-        if sym:
-            known[sym.upper()] = isin
-    return known
 
 
 def load_results(lake: Lake, paths: list[str], isin: str | None = None, broadcast: str | None = None) -> None:

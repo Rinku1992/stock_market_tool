@@ -14,3 +14,14 @@ def index_members(lake: Lake, index_id: str) -> list[tuple[str, str | None]]:
             ORDER BY source_ref""",
         [index_id, index_id],
     )
+
+
+def symbol_to_isin(lake: Lake) -> dict[str, str]:
+    """Symbol -> ISIN from your stored holdings and the Nifty 100 list."""
+    from smt.data.holdings import latest_holdings
+
+    known = {}
+    for isin, sym in latest_holdings(lake) + index_members(lake, "IDX:NIFTY100"):
+        if sym:
+            known[sym.upper()] = isin
+    return known
