@@ -6,6 +6,7 @@ its own analysts and tools, and returns a verdict for three horizons: 3-5 months
 
 This is decision support, not investment advice.
 
+- Build progress, live: [agent tree page](https://claude.ai/artifact/PmV5vUQ4cDGounwPxr3jeV) (source: docs/agent_tree.html)
 - Design: [docs/BLUEPRINT.md](docs/BLUEPRINT.md)
 - Data formats and schemas: [docs/DATA_CONTRACT.md](docs/DATA_CONTRACT.md)
 - Why things are the way they are: [DECISIONS.md](DECISIONS.md)
