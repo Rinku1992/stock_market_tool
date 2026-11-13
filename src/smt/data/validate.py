@@ -46,7 +46,8 @@ def conform(table: pa.Table, ds: Dataset) -> pa.Table:
         raise ContractError(f"{ds.name}: published_at is after ingested_at")
 
     for col, allowed in ds.enums:
-        if not _all(pc.is_in(table[col], value_set=pa.array(sorted(allowed)))):
+        # an empty value in an optional column is allowed; required columns were checked for nulls above
+        if not _all(pc.or_(pc.is_null(table[col]), pc.is_in(table[col], value_set=pa.array(sorted(allowed))))):
             raise ContractError(f"{ds.name}: '{col}' has a value outside {sorted(allowed)}")
 
     _CHECKS.get(ds.name, lambda t: None)(table)

@@ -172,3 +172,28 @@ Newest at the bottom. One entry per choice, with the reason.
   expected the weights version to be exactly "2026-11-13"). The push command did not stop on a pytest
   failure. Fixed in the next commit: the tests now follow the version in the weights file. From now on
   the push runs only after pytest exits cleanly.
+- **Call logger: no backfill, ever (13 Nov 2026).** Calls are recorded only for today's date in India and
+  only after the 15:30 IST close; any other date is refused. A call written after the fact could use
+  knowledge of the outcome, and the track record would be worthless.
+- **"Today was a trading day" comes from the Nifty 50 bar.** There is no holiday calendar in the repo.
+  After update-prices, the Nifty 50 has a bar for today only if the market was open. No bar for today
+  means "closed today or prices not updated", and nothing is recorded. Every stock must also have
+  today's bar; if any is stale, the whole run stops and names them.
+- **Not verified:** that Kite's day candle fetched just after 15:30 equals NSE's official close. NSE sets
+  the close from the last half hour's trades, so a candle pulled a few minutes after 15:30 may differ
+  slightly. The close stored with each call is what Kite gave at that time.
+- **Same day twice adds nothing:** a stock already recorded that day is skipped. The first record of the
+  day stands, so nothing can be quietly replaced after more is known.
+- **calls dataset (v1):** one row per stock, source (analyst / desk / verdict) and horizon. Verdict rows
+  map consider/avoid/no_call to positive/negative/neutral in `direction` and keep the exact value in a
+  `call` column (added beyond the requested columns, so "no call" is not confused with "neutral").
+  `strength` is empty for verdicts, `weights_version` is set on desk rows only. Rows go through an
+  adapter (raw JSON kept) and the contract like every other dataset.
+- **Contract gate: an empty value in an optional enum column is allowed.** Needed for `call`, which is
+  empty on analyst and desk rows. Required columns are still checked for empty values first.
+- **code_version = git commit, with "-dirty" if tracked files had uncommitted changes.** The first day
+  (13 Nov 2026) was recorded as "2e089a5-dirty" because the logger was not committed yet. The analyst,
+  desk and graph code was unchanged from 2e089a5; only the logger, contract and update-prices files were new.
+- **update-prices pulls the last 10 calendar days** for the Nifty 100 members, your holdings and the
+  Nifty 50, up to today if it is after 15:30 IST, else up to yesterday. Ten days covers long weekends
+  and holidays. Re-pulled days replace older rows for the same key (newest ingestion wins).

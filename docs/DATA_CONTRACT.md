@@ -46,6 +46,7 @@ Code: `src/smt/data/contract.py`. This page explains the choices.
 | `index_members` | index_id, instrument_id, valid_from | Membership over time |
 | `holdings` | account, instrument_id, as_of | `account` is an alias, never the broker client id |
 | `documents` | doc_id | Index of stored PDFs and transcripts |
+| `calls` | as_of, instrument_id, source_kind, source_id, horizon | What the engine said: one row per stock, per source (each analyst, each desk lead, the verdict), per horizon. Direction, strength, confidence, the verdict's call, close price on the day, weights version (desk rows), code version (git commit) and the full report as JSON. `published_at` = when it was recorded. Only for today's date (IST) after the 15:30 close: never backfilled |
 
 Still to add, each when its desk is built: news, announcements, insider and bulk/block deals,
 F&O, credit ratings, surveillance lists, macro series, event calendar, peer mapping.
