@@ -39,3 +39,21 @@ def test_ingest_and_read_latest_list(tmp_path):
     ingest(NseIndexListFile(f, "IDX:NIFTY100", date(2026, 11, 12)), lake)
     assert index_members(lake, "IDX:NIFTY100") == [("INE002A01018", "RELIANCE")]
     assert index_members(lake, "IDX:OTHER") == []
+
+
+def test_top_holdings_by_money_invested(tmp_path):
+    import json
+    import httpx
+    from smt.data.holdings import top_holdings
+    from smt.sources.kite import KiteClient, KiteHoldings
+    held = json.dumps({"status": "success", "data": [
+        {"tradingsymbol": "SMALL", "isin": "INE000000001", "quantity": 100, "t1_quantity": 0, "average_price": 10.0},
+        {"tradingsymbol": "BIG", "isin": "INE000000002", "quantity": 10, "t1_quantity": 0, "average_price": 500.0},
+        {"tradingsymbol": "MID", "isin": "INE000000003", "quantity": 20, "t1_quantity": 0, "average_price": 100.0},
+    ]}).encode()
+    client = KiteClient("k", "t", http=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=held))))
+    lake = Lake(tmp_path)
+    ingest(KiteHoldings(client, "main", date(2026, 11, 13)), lake)
+    top = top_holdings(lake, 2)
+    assert [s for _, s, _ in top] == ["BIG", "MID"]  # 5,000 and 2,000 invested; SMALL has 1,000
+    assert round(top[0][2], 3) == 0.625

@@ -3,6 +3,7 @@
     python -m smt.data_cli gaps INE002A01018 [--pct 20]
     python -m smt.data_cli index-list data/ind_nifty100list.csv [--index IDX:NIFTY100]
     python -m smt.data_cli results data/<file>.xml [more files ...] [--broadcast "2025-01-16 20:15:20"]
+    python -m smt.data_cli top-holdings [--n 10]
 
 `gaps` lists days where the close moved more than --pct percent from the previous close.
 A large one-day drop on a split or bonus date means the prices are NOT adjusted.
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from smt.data.adapter import ingest
 from smt.data.lake import Lake
 from smt.data.members import index_members
-from smt.data.holdings import latest_holdings
+from smt.data.holdings import latest_holdings, loaded_quarters, top_holdings
 from smt.sources.nse_files import NseIndexListFile
 from smt.sources.nse_results import IST, NseResultsXbrlFile, parse_results_xbrl
 
@@ -59,6 +60,18 @@ def load_results(lake: Lake, paths: list[str], isin: str | None = None, broadcas
         print(f"{rf.symbol} {kind}, period ended {rf.period_end}: {len(rf.facts)} figures stored")
 
 
+def print_top_holdings(lake: Lake, n: int) -> None:
+    top = top_holdings(lake, n)
+    if not top:
+        print("No holdings stored. Run: python -m smt.kite_cli holdings")
+        return
+    print(f"{'#':>2}  {'symbol':12} {'ISIN':13} {'share':>6}  consolidated quarters loaded")
+    for i, (isin, sym, share) in enumerate(top, 1):
+        qs = ", ".join(d.strftime("%b %Y") for d in loaded_quarters(lake, isin)) or "none"
+        print(f"{i:>2}  {(sym or '?'):12} {isin:13} {share:>6.1%}  {qs}")
+    print(f"\nThese {len(top)} hold {sum(s for _, _, s in top):.0%} of the money you invested (by buy price).")
+
+
 def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     p = argparse.ArgumentParser(prog="smt.data_cli")
@@ -74,8 +87,13 @@ def main(argv: list[str] | None = None) -> None:
     rs.add_argument("paths", nargs="+")
     rs.add_argument("--isin", help="needed only for older files that have no ISIN and a symbol we cannot match")
     rs.add_argument("--broadcast", help='NSE broadcast time, IST, e.g. "2025-01-16 20:15:20" (only with one file)')
+    th = sub.add_parser("top-holdings", help="your largest holdings by money invested, and which results are loaded")
+    th.add_argument("--n", type=int, default=10)
     args = p.parse_args(argv)
     lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
+    if args.cmd == "top-holdings":
+        print_top_holdings(lake, args.n)
+        return
     if args.cmd == "results":
         load_results(lake, args.paths, args.isin, args.broadcast)
         return
