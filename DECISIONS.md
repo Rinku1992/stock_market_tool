@@ -109,3 +109,27 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.
+- **Stock type router is plain code reading filing tags, decided per stock (13 Nov 2026).** A stock is a
+  "lender" if any loaded filing has Loans above zero, or has both InterestEarned above zero and
+  ImpairmentOnFinancialInstruments (June and December filings carry no balance sheet, so no Loans).
+  The report lists the tags that made the call. No filings means "unknown", not a guess. These tags
+  are from the NBFC results taxonomy (checked on M&MFIN); none of the 33 general filings loaded has
+  them. Known gap: no bank filing is loaded, so bank tag names are not verified and a bank could
+  come out as "general".
+- **Lender playbook in financial_trend.** Lenders report total income, net margin (net profit / total
+  income), net interest income (interest earned minus finance costs), credit cost and credit cost as a
+  share of loans a year (quarter x 4 / loans), loans (total assets if loans are not tagged), each
+  borrowing line under its filed name, debt to net worth, and growth versus last year. Ratios we
+  compute are labelled "computed by us". EBITDA and the negative operating cash check are skipped:
+  they mean nothing for a lender, whose loans count as operating cash outflow.
+- **Lender total borrowings = Borrowings (other than debt securities) + DebtSecurities + Deposits +
+  SubordinatedLiabilities.** If any of the four is not filed, the found pieces are shown and no total or
+  debt to net worth is given. Subordinated debt is included because it is borrowed money.
+- **Debt to net worth uses total equity (Equity, including minority interest)**, the same as debt to
+  equity for general companies, so the two are comparable (owner's call). Stored as the same
+  feature, fin_debt_to_equity.
+- **The filing's own DebtEquityRatio and EPS tags are not used.** In the M&MFIN Sep 2026 filing they are
+  0.0, which looks unfilled. Another case where a zero is not a real zero.
+- **New canonical items:** loans, borrowings_other_than_debt_securities, debt_securities, deposits,
+  subordinated_liabilities, interest_income (InterestEarned), credit_cost (ImpairmentOnFinancialInstruments).
+  Files loaded before this change were re-loaded with data_cli so the lake uses the new names.

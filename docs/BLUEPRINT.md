@@ -111,7 +111,7 @@ sentinel (C), depth controller (C)
 | 2d. Desk lead | DeskReport schema, weighted combine from versioned weights, LLM summary checked by code | Market activity desk returns a DeskReport | Built |
 | 2e. Calibration (learning loop) | Re-score analysts on outcomes, by regime; write new weight versions | Weights change only when evidence does | Planned |
 | 2f. Financial trend | NSE results XBRL reader (both formats), point-in-time financials, financial trend analyst | Real Reliance filings load and report | Built. Needs filings for more stocks and quarters |
-| 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Needs a fundamentals vendor |
+| 2b. Other code desks | Router, financial trend, valuation, ownership | Each returns a report for the 5 stocks | Router built (lender / general, from filing tags; checked on M&MFIN, banks not verified). Lender playbook for financial trend built. Valuation and ownership need a fundamentals vendor |
 | 3a. Backtest engine | Monthly point-in-time replay, scored on return versus Nifty 50 | Runs on live prices | Built. Only meaningful once many stocks are loaded |
 | 3b. Scoring engine | Turns analyst views into a verdict, using weights that backtests support | First real verdict | Needs 3a results on many stocks |
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |
