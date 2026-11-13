@@ -1,0 +1,17 @@
+{
+  "unit": "market_activity",
+  "version": "2026-11-13",
+  "source": "Nifty 100 backtest, Sep 2022 to Jun 2026, monthly, scored against the median stock on the same date",
+  "weights": {
+    "price_structure": {"short": 0.0, "mid": 0.0, "long": 0.0},
+    "momentum": {"short": 0.0, "mid": 0.0, "long": 0.0},
+    "liquidity": {"short": 0.0, "mid": 0.0, "long": 0.0},
+    "market_beta": {"short": 0.0, "mid": 0.0, "long": 0.0}
+  },
+  "why": {
+    "price_structure": "No edge: positive minus negative median gap was -0.8 points short term and 0.0 mid term.",
+    "momentum": "No edge at the median: gap of 0.2 points short term and 1.2 points mid term, hit rates about 50%.",
+    "liquidity": "Context only. Gives no direction.",
+    "market_beta": "Context only. Gives no direction."
+  }
+}

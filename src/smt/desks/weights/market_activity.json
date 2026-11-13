@@ -1,17 +1,33 @@
 {
   "unit": "market_activity",
-  "version": "2026-11-13",
-  "source": "Nifty 100 backtest, Sep 2022 to Jun 2026, monthly, scored against the median stock on the same date",
+  "version": "2026-11-13.2",
+  "source": "Calibration officer: IDX:NIFTY100 (100 stocks), monthly views scored against the median stock on the same date; positive or negative views scored short 2022-09-30 to 2026-06-30, mid 2022-09-30 to 2026-01-30, long none; rules in DECISIONS.md (13 Nov 2026)",
   "weights": {
-    "price_structure": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "momentum": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "liquidity": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "market_beta": {"short": 0.0, "mid": 0.0, "long": 0.0}
+    "price_structure": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "momentum": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "liquidity": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "market_beta": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    }
   },
   "why": {
-    "price_structure": "No edge: positive minus negative median gap was -0.8 points short term and 0.0 mid term.",
-    "momentum": "No edge at the median: gap of 0.2 points short term and 1.2 points mid term, hit rates about 50%.",
-    "liquidity": "Context only. Gives no direction.",
-    "market_beta": "Context only. Gives no direction."
+    "price_structure": "short: Weight 0: edge not above 0; edge not above 0 in all 3 periods (+0.2 pts, -1.6 pts, -1.6 pts); shuffle test failed (beats 7% of shuffles, needs 95%). mid: Weight 0: edge not above 0; edge not above 0 in all 3 periods (+2.3 pts, -2.6 pts, +0.8 pts); shuffle test failed (beats 41% of shuffles, needs 95%). long: Gives no direction (context only).",
+    "momentum": "short: Weight 0: edge not above 0 in all 3 periods (+6.4 pts, -1.8 pts, -1.9 pts); shuffle test failed (beats 69% of shuffles, needs 95%). mid: Weight 0: edge not above 0 in all 3 periods (+18.1 pts, -5.2 pts, -1.6 pts); shuffle test failed (beats 92% of shuffles, needs 95%). long: Gives no direction (context only).",
+    "liquidity": "short: Gives no direction (context only). mid: Gives no direction (context only). long: Gives no direction (context only).",
+    "market_beta": "short: Gives no direction (context only). mid: Gives no direction (context only). long: Gives no direction (context only)."
   }
 }

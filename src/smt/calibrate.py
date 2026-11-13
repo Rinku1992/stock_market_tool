@@ -131,6 +131,23 @@ def _pt(x: float | None) -> str:
     return "n/a" if x is None else f"{x * 100:+.1f} pts"
 
 
+def scored_span(obs: list[Obs]) -> dict[Horizon, tuple[date, date] | None]:
+    """First and last date with a scored positive or negative view, per horizon.
+
+    Neutral views are left out: they do not enter the edge. Each horizon has its own end, because a
+    longer horizon needs more of the future to score a view.
+    """
+    out = {}
+    for h in Horizon:
+        d = [o.as_of for o in obs if o.horizon == h and o.direction != Direction.NEUTRAL]
+        out[h] = (min(d), max(d)) if d else None
+    return out
+
+
+def describe_span(span: dict[Horizon, tuple[date, date] | None]) -> str:
+    return ", ".join(f"{h.value} {v[0]} to {v[1]}" if v else f"{h.value} none" for h, v in span.items())
+
+
 def regime_by_date(bars) -> dict[date, str]:
     """'above' / 'below' the 200-day average close, for each date with enough history."""
     out, closes = {}, [b.close for b in bars]
@@ -157,11 +174,23 @@ def weights_doc(unit: str, results: dict[str, dict[Horizon, Cell]], version: str
     }
 
 
+def _next_version(version: str, folder: Path, unit: str, current: str | None) -> str:
+    """A second version on the same day gets .2, .3, ... so every version name is unique."""
+    taken = {current} | {json.loads(p.read_text()).get("version") for p in (folder / "history").glob(f"{unit}_*.json")}
+    if version not in taken:
+        return version
+    i = 2
+    while f"{version}.{i}" in taken:
+        i += 1
+    return f"{version}.{i}"
+
+
 def write_weights(unit: str, doc: dict, folder: Path = WEIGHTS_DIR) -> Path:
     """Save a new version. The old file is kept in history/ and never overwritten."""
     path = folder / f"{unit}.json"
     if path.exists():
         old = json.loads(path.read_text())
+        doc = {**doc, "version": _next_version(doc["version"], folder, unit, old.get("version"))}
         hist = folder / "history"
         hist.mkdir(parents=True, exist_ok=True)
         target, i = hist / f"{unit}_{old.get('version', 'none')}.json", 1
@@ -203,18 +232,18 @@ def main(argv: list[str] | None = None) -> None:
     if len(ids) < MIN_UNIVERSE_BENCH:
         p.error(f"need at least {MIN_UNIVERSE_BENCH} stocks with the index list loaded; found {len(ids)}")
     analysts = {fn.__name__: fn for fn in DESKS[args.unit]}
-    dates: list[date] = []
+    scored: list[Obs] = []
 
     def run(fn):
         obs = run_backtest(lake, ids, fn, vs="universe")
-        dates.extend(o.as_of for o in obs)
+        scored.extend(obs)
         return obs
 
     regime = regime_by_date(load_bars(lake, BENCHMARK, _FAR))
     results = calibrate(analysts, run, regime)
-    span = f"{min(dates)} to {max(dates)}" if dates else "no dates"
-    source = (f"Calibration officer: {args.index} ({len(ids)} stocks), monthly {span}, scored against the median stock "
-              f"on the same date; rules in DECISIONS.md (13 Nov 2026)")
+    source = (f"Calibration officer: {args.index} ({len(ids)} stocks), monthly views scored against the median stock "
+              f"on the same date; positive or negative views scored {describe_span(scored_span(scored))}; "
+              f"rules in DECISIONS.md (13 Nov 2026)")
     print(f"\nCalibration: {args.unit} | {source}\n")
     print_table(results)
     print("\nHow to read this")
@@ -227,7 +256,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"- {a}: " + " ".join(f"{h.value}: {c.why}" for h, c in cells.items()))
     if args.write:
         path = write_weights(args.unit, weights_doc(args.unit, results, date.today().isoformat(), source))
-        print(f"\nSaved new weights to {path}. The old version is in {path.parent / 'history'}.")
+        version = json.loads(path.read_text())["version"]
+        print(f"\nSaved weights version {version} to {path}. The old version is in {path.parent / 'history'}.")
     else:
         print("\nNot saved. Run again with --write to save these weights.")
 
