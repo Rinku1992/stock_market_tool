@@ -2,11 +2,13 @@
 
 from datetime import date, datetime, timedelta, timezone
 
+import subprocess
+
 import pyarrow as pa
 import pytest
 
 from smt.analysts.market_activity import BENCHMARK, liquidity, price_structure
-from smt.calls import IST, CallRecord, RecordRefused, call_rows, check_record_time, record_day, status
+from smt.calls import IST, CallRecord, code_version, RecordRefused, call_rows, check_record_time, record_day, status
 from smt.data.contract import CALLS
 from smt.data.lake import Lake
 from smt.data.validate import ContractError, conform
@@ -151,3 +153,28 @@ def test_update_prices_targets_and_window(tmp_path):
     assert update_targets(lake) == [("IDX:NIFTY50", "NIFTY 50"), (A, "AAA"), (B, "BBB"), ("INE000CCCC01", "CCC")]
     assert update_window(datetime(2026, 11, 13, 15, 29, tzinfo=IST)) == (date(2026, 11, 2), date(2026, 11, 12))
     assert update_window(datetime(2026, 11, 13, 15, 30, tzinfo=IST)) == (date(2026, 11, 3), date(2026, 11, 13))
+
+
+def test_uncommitted_code_is_refused(tmp_path):
+    lake = _lake(tmp_path)
+    with pytest.raises(RecordRefused, match=r"uncommitted changes to tracked files \(at abc1234\)"):
+        record_day(lake, FeatureStore(), STOCKS, run_fn=_run, version="abc1234def-dirty", now=AFTER_CLOSE)
+    assert not lake.has("calls")
+
+
+def test_code_version_ignores_untracked_files(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=repo, check=True,  # noqa: E731
+                                    capture_output=True)
+    git("init", "-q")
+    (repo / "code.py").write_text("x = 1\n")
+    git("add", "code.py")
+    git("commit", "-q", "-m", "c")
+    clean = code_version(repo)
+    assert len(clean) == 40 and not clean.endswith("-dirty")
+    (repo / "data").mkdir()
+    (repo / "data" / "new.parquet").write_text("untracked")
+    assert code_version(repo) == clean  # untracked files do not count
+    (repo / "code.py").write_text("x = 2\n")
+    assert code_version(repo) == clean + "-dirty"  # a changed tracked file does

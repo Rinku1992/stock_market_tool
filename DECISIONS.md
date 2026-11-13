@@ -197,3 +197,10 @@ Newest at the bottom. One entry per choice, with the reason.
 - **update-prices pulls the last 10 calendar days** for the Nifty 100 members, your holdings and the
   Nifty 50, up to today if it is after 15:30 IST, else up to yesterday. Ten days covers long weekends
   and holidays. Re-pulled days replace older rows for the same key (newest ingestion wins).
+- **record refuses to run with uncommitted changes to tracked files (13 Nov 2026).** Every recorded call
+  must point at a commit that can be checked later. Untracked files (data/ and the like) do not count.
+  The first day (13 Nov 2026, "2e089a5-dirty") is the only day recorded without this check.
+- **close_price in calls is the price seen at record time, not the official close.** The future scorer
+  must use prices re-pulled on a later day, not this column, so it gets NSE's official close (see the
+  "not verified" note on Kite candles just after 15:30). The column stays as a record of what the
+  engine saw.
