@@ -13,7 +13,7 @@ import os
 from dotenv import load_dotenv
 
 from smt.analysts.market_activity import momentum, price_structure
-from smt.backtest import FWD_DAYS, MIN_TRUSTED_N, run_backtest, summarize
+from smt.backtest import BENCHMARKS, FWD_DAYS, MIN_TRUSTED_N, MIN_UNIVERSE_BENCH, run_backtest, summarize
 from smt.data.holdings import latest_holdings
 from smt.data.lake import Lake
 from smt.data.members import index_members
@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--holdings", action="store_true", help="use every stock in your stored holdings")
     p.add_argument("--account", default="main")
     p.add_argument("--index", help="use every stored member of this index, e.g. IDX:NIFTY100")
+    p.add_argument("--vs", choices=BENCHMARKS, help="benchmark: universe median (default with 10+ stocks) or nifty")
     args = p.parse_args(argv)
     lake = Lake(os.environ.get("SMT_LAKE_PATH", "data/lake"))
     ids = [i.upper() for i in args.isins]
@@ -38,13 +39,15 @@ def main(argv: list[str] | None = None) -> None:
         ids += [i for i, _ in index_members(lake, args.index) if i not in ids]
     if not ids:
         p.error("give at least one ISIN, or use --holdings or --index")
-    obs = run_backtest(lake, ids, ANALYSTS[args.analyst])
+    vs = args.vs or ("universe" if len(ids) >= MIN_UNIVERSE_BENCH else "nifty")
+    obs = run_backtest(lake, ids, ANALYSTS[args.analyst], vs=vs)
     if not obs:
         print("No views could be scored. Check that prices are loaded for the stocks and the index.")
         return
     dates = sorted({o.as_of for o in obs})
     print(f"\nBacktest: {args.analyst} | {len(ids)} stock(s) | monthly, {dates[0]} to {dates[-1]}")
-    print("Scored on return versus Nifty 50 after "
+    bench = f"the median of all {len(ids)} stocks on the same date" if vs == "universe" else "the Nifty 50"
+    print(f"Scored on return versus {bench}, after "
           + ", ".join(f"{FWD_DAYS[h]} trading days ({h.value})" for h in FWD_DAYS) + "\n")
     print(f"{'horizon':8} {'view':9} {'n':>5} {'stocks':>6} {'mean excess':>12} {'median':>8} {'hit rate':>9}")
     small = False
@@ -55,9 +58,9 @@ def main(argv: list[str] | None = None) -> None:
             flag, small = " *", True
         print(f"{r.horizon.value:8} {r.view:9} {r.n:>5} {r.n_stocks:>6} {r.mean_excess:>+12.1%} {r.median_excess:>+8.1%} {hit:>9}{flag}")
     print("\nHow to read this")
-    print("- mean excess: average return of the stock minus the Nifty 50 after the view was given.")
+    print(f"- mean excess: average return of the stock minus {bench}, after the view was given.")
     print("- median: the middle case. If mean and median differ a lot, a few big moves drive the mean.")
-    print("- hit rate: share of positive views that beat the index, or negative views that lagged it.")
+    print("- hit rate: share of positive views that beat the benchmark, or negative views that lagged it.")
     print("- ALL: every scored date, whatever the view. A view is only useful if it does better than ALL.")
     if small:
         print(f"- * fewer than {MIN_TRUSTED_N} cases. Too few to trust.")

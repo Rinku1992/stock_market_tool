@@ -69,6 +69,10 @@ Newest at the bottom. One entry per choice, with the reason.
   layout is not verified, so the parser fails loudly if the columns are missing.
 - **Backtest on today's index list has survivorship bias.** Stocks that left the index are
   missing. The output says so until membership history is loaded.
+- **Backtest benchmark defaults to the median of all stocks in the run (10+ stocks).** On the
+  Nifty 100, the whole list beat the Nifty 50 (survivorship bias, strong Next 50), so beating the
+  Nifty 50 said little about a rule. Against the same-date median, a rule must pick better than
+  its own universe. `--vs nifty` keeps the old test.
 - **Earlier rule, now replaced: paid, licensed data only (owner's call).** No free scrapers or unofficial wrappers.
   Scraped data breaks without notice and has no point-in-time history, which goes against
   the reliability benchmark. Vendor not chosen yet.

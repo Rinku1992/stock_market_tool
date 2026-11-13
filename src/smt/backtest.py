@@ -1,7 +1,10 @@
 """Backtest engine. Plain code: no LLM, no LangGraph.
 
 For each month-end date and each stock, it asks an analyst for its view using only data
-known on that date, then measures what the stock did afterwards versus the benchmark.
+known on that date, then measures what the stock did afterwards versus a benchmark:
+- "universe" (default with 10+ stocks): the median forward return of all stocks in the run on
+  that same date. Fair when the stock list as a whole beat the index.
+- "nifty": the Nifty 50.
 
 The analyst can never see the future: it reads prices through load_bars(as_of).
 Only this engine looks forward, and only to score the view.
@@ -21,6 +24,8 @@ from smt.schema import Direction, Horizon
 # Trading days used to score each horizon (midpoints of the ranges).
 FWD_DAYS = {Horizon.SHORT: 84, Horizon.MID: 189, Horizon.LONG: 500}  # ~4 months, ~9 months, ~2 years
 MIN_TRUSTED_N = 30
+MIN_UNIVERSE_BENCH = 10  # stocks needed on a date to use their median as the benchmark
+BENCHMARKS = ("universe", "nifty")
 _FAR = date(2200, 1, 1)
 
 
@@ -31,11 +36,11 @@ class Obs:
     horizon: Horizon
     direction: Direction
     fwd_return: float
-    fwd_index_return: float
+    fwd_bench_return: float
 
     @property
     def excess(self) -> float:
-        return self.fwd_return - self.fwd_index_return
+        return self.fwd_return - self.fwd_bench_return
 
 
 @dataclass(frozen=True)
@@ -61,31 +66,48 @@ def month_ends(dates: list[date]) -> list[date]:
     return [a for a, b in zip(dates, dates[1:]) if (a.year, a.month) != (b.year, b.month)]
 
 
+def _fwd(bars, i: int, n: int) -> float | None:
+    return bars[i + n].close / bars[i].close - 1 if i + n < len(bars) else None
+
+
 def run_backtest(lake: Lake, instrument_ids: list[str], analyst: Analyst, benchmark: str = BENCHMARK,
-                 start: date | None = None, end: date | None = None) -> list[Obs]:
+                 start: date | None = None, end: date | None = None, vs: str = "nifty") -> list[Obs]:
+    if vs not in BENCHMARKS:
+        raise ValueError(f"vs must be one of {BENCHMARKS}")
     cache_bars(lake, [*instrument_ids, benchmark])
     idx = load_bars(lake, benchmark, _FAR)
     if not idx:
         raise ValueError(f"no prices loaded for benchmark {benchmark}")
     idx_pos = {b.d: i for i, b in enumerate(idx)}
     evals = [d for d in month_ends([b.d for b in idx]) if (start is None or d >= start) and (end is None or d <= end)]
+    series = {iid: load_bars(lake, iid, _FAR) for iid in instrument_ids}
+    pos = {iid: {b.d: i for i, b in enumerate(bars)} for iid, bars in series.items()}
+
+    # The benchmark return for each date and horizon, worked out once.
+    bench: dict[tuple[date, Horizon], float | None] = {}
+    for d in evals:
+        for h, n in FWD_DAYS.items():
+            if vs == "nifty":
+                bench[(d, h)] = _fwd(idx, idx_pos[d], n)
+            else:
+                vals = [r for iid in instrument_ids if d in pos[iid]
+                        for r in [_fwd(series[iid], pos[iid][d], n)] if r is not None]
+                bench[(d, h)] = median(vals) if len(vals) >= MIN_UNIVERSE_BENCH else None
+
     store, obs = _NullStore(), []
     for iid in instrument_ids:
-        bars = load_bars(lake, iid, _FAR)
-        pos = {b.d: i for i, b in enumerate(bars)}
+        bars = series[iid]
         for d in evals:
-            if d not in pos:
+            if d not in pos[iid]:
                 continue
             report = analyst(AnalystContext(symbol=iid, as_of=d, store=store, lake=lake, instrument_id=iid))
             if not report.evidence:  # the analyst could not run (too little history), so there is no view to score
                 continue
-            i, j = pos[d], idx_pos[d]
             for v in report.views:
-                h = FWD_DAYS[v.horizon]
-                if i + h >= len(bars) or j + h >= len(idx):
+                r, b = _fwd(bars, pos[iid][d], FWD_DAYS[v.horizon]), bench[(d, v.horizon)]
+                if r is None or b is None:
                     continue  # the future needed to score this view has not happened yet
-                obs.append(Obs(iid, d, v.horizon, v.direction,
-                               bars[i + h].close / bars[i].close - 1, idx[j + h].close / idx[j].close - 1))
+                obs.append(Obs(iid, d, v.horizon, v.direction, r, b))
     return obs
 
 

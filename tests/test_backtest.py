@@ -53,8 +53,8 @@ def test_forward_return_maths(tmp_path):
     o = next(x for x in run_backtest(lake, ["UP"], price_structure) if x.horizon == Horizon.SHORT)
     h = FWD_DAYS[Horizon.SHORT]
     assert o.fwd_return == pytest.approx(1.002 ** h - 1)
-    assert o.fwd_index_return == pytest.approx(1.0003 ** h - 1)
-    assert o.excess == pytest.approx(o.fwd_return - o.fwd_index_return)
+    assert o.fwd_bench_return == pytest.approx(1.0003 ** h - 1)
+    assert o.excess == pytest.approx(o.fwd_return - o.fwd_bench_return)
 
 
 def test_analyst_never_sees_the_future(tmp_path):

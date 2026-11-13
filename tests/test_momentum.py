@@ -93,3 +93,21 @@ def test_backtest_on_persistent_trends(tmp_path):
     rows = {(r.horizon, r.view): r for r in summarize(run_backtest(lake, ids, momentum))}
     assert rows[(Horizon.SHORT, "positive")].mean_excess > 0 > rows[(Horizon.SHORT, "negative")].mean_excess
     assert rows[(Horizon.SHORT, "positive")].median_excess > 0
+
+
+def test_universe_benchmark_centres_each_date_on_zero(tmp_path):
+    from statistics import median as med
+    lake = _lake(tmp_path)
+    ids = [f"S{i:02d}" for i in range(12)]
+    obs = run_backtest(lake, ids, momentum, vs="universe")
+    by_slot = {}
+    for o in obs:
+        by_slot.setdefault((o.as_of, o.horizon), []).append(o.excess)
+    assert by_slot and all(abs(med(v)) < 1e-12 for v in by_slot.values() if len(v) == 12)
+    rows = {(r.horizon, r.view): r for r in summarize(obs)}
+    assert rows[(Horizon.MID, "positive")].median_excess > 0 > rows[(Horizon.MID, "negative")].median_excess
+
+
+def test_universe_benchmark_needs_ten_stocks(tmp_path):
+    lake = _lake(tmp_path, n_stocks=5)
+    assert run_backtest(lake, [f"S{i:02d}" for i in range(5)], momentum, vs="universe") == []

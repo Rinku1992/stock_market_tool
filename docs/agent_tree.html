@@ -20,6 +20,8 @@
   --built: #1f7a3d;
   --built-soft: #e2f3e7;
   --chip-border: #c9d4da;
+  --wip: #9a5b00;
+  --wip-soft: #fbefd9;
   --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -29,12 +31,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0f171c; --surface: #16222a; --ink: #e6eef2; --muted: #95a8b3; --line: #3a4c57;
     --accent: #5cc6c9; --accent-soft: #173a3d; --built: #6fd394; --built-soft: #183626; --chip-border: #34474f;
+    --wip: #f0b65a; --wip-soft: #3a2a10;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f171c; --surface: #16222a; --ink: #e6eef2; --muted: #95a8b3; --line: #3a4c57;
   --accent: #5cc6c9; --accent-soft: #173a3d; --built: #6fd394; --built-soft: #183626; --chip-border: #34474f;
+  --wip: #f0b65a; --wip-soft: #3a2a10;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -55,6 +59,23 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 .status.built { background: var(--built-soft); color: var(--built); }
 .status.built::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--built); margin-right: 5px; vertical-align: 1px; }
 .status.planned { color: var(--muted); border: 1px dashed var(--chip-border); }
+.status.testing, .status.next { background: var(--wip-soft); color: var(--wip); }
+.status.next { background: transparent; border: 1px solid var(--wip); }
+.leaf.is-testing, .leaf.is-next { border-color: var(--wip); }
+
+.progress { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin: 0 0 22px; }
+.pcard { background: var(--surface); border: 1px solid var(--chip-border); border-radius: 10px; padding: 12px 14px; }
+.pcard.now { border-top: 4px solid var(--wip); }
+.pcard.next { border-top: 4px solid var(--accent); }
+.pcard.you { border-top: 4px solid var(--ink); }
+.pcard h3 { font: 600 12px/1 var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.pcard b { display: block; font: 600 15px/1.3 var(--font-display); margin-bottom: 4px; }
+.pcard p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.log { background: var(--surface); border: 1px solid var(--chip-border); border-radius: 10px; padding: 12px 14px; margin: 0 0 26px; }
+.log h3 { font: 600 12px/1 var(--font-mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.log li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; font-size: 13.5px; }
+.log time { font: 500 12px/1.5 var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .root { background: var(--accent); color: #fff; border-radius: 12px; padding: 16px 18px; max-width: 640px; position: relative; }
 :root[data-theme="dark"] .root { color: #08292a; }
@@ -111,14 +132,27 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
   <h1>Stock Research Engine: who does what</h1>
   <p class="lede">One orchestrator sends each stock through research units. Every unit has its own analysts, and each analyst does one job. The answer is consider, avoid or no call for 3-5 months, 6-12 months and 2 years.</p>
 
+  <div class="progress" aria-label="Where we are">
+    <div class="pcard now"><h3>Working on now</h3><b id="now-title"></b><p id="now-text"></p></div>
+    <div class="pcard next"><h3>Next</h3><b id="next-title"></b><p id="next-text"></p></div>
+    <div class="pcard you"><h3>Waiting on you</h3><b id="you-title"></b><p id="you-text"></p></div>
+  </div>
+
   <div class="stats" id="stats"></div>
   <div class="legend">
     <span><span class="chip">Code</span> rules and maths, no AI</span>
     <span><span class="chip llm">LLM</span> reads text, quotes its source</span>
     <span><span class="chip both">Both</span> LLM extracts, code decides</span>
     <span><span class="status built">Built</span> running on live data</span>
+    <span><span class="status testing">Testing</span> built, proving it works</span>
+    <span><span class="status next">Next</span> being built next</span>
     <span><span class="status planned">Planned</span></span>
   </div>
+
+  <section class="log" aria-label="Done so far">
+    <h3>Done so far</h3>
+    <ol id="log"></ol>
+  </section>
 
   <section class="root" aria-label="Orchestrator">
     <h2>Orchestrator</h2>
@@ -137,6 +171,21 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
   </section>
 </main>
 <script>
+// Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
+const PROGRESS = {
+  now: ["Fairer backtest scoring", "Backtest engine (shared tool). Scores each view against the median of all stocks on the same date, not the Nifty 50. Used to test Price structure and Momentum."],
+  next: ["Financial trend analyst", "Equity research. The first analyst that reads company financials: margins, ROCE, debt, cash conversion."],
+  you: ["Reliance results filing", "Download the latest quarterly results file (XBRL) for Reliance from NSE and upload it, so the parser is built from a real file."]
+};
+const LOG = [
+  ["13 Nov", "Fairer backtest scoring built (median of all stocks as the benchmark)."],
+  ["13 Nov", "Nifty 100 backtest: Momentum shows a small 6 to 12 month edge. Price structure shows none."],
+  ["13 Nov", "Nifty 100 member list and 5 years of prices for all 100 stocks loaded."],
+  ["12 Nov", "Momentum analyst built."],
+  ["12 Nov", "Backtest engine built. Holdings: 21 stocks with prices loaded."],
+  ["12 Nov", "Price structure, Liquidity and Market beta analysts built and run on live data."],
+  ["12 Nov", "Kite connector (prices, holdings), data contract and storage built."]
+];
 const UNITS = [
   { n: "0", t: "Data office", q: "Checks the data before any research runs. Bad data stops the run.", a: [
     ["Symbol and corporate action resolver", "C", "Maps each symbol to its ISIN and tracks splits, bonus issues and mergers."],
@@ -157,7 +206,7 @@ const UNITS = [
     ["Silence analyst", "B", "Flags what is missing: late results, a skipped earnings call."] ] },
   { n: "2", t: "Equity research", q: "Is the business good, and is the price fair?", a: [
     ["Business model", "L", "How it earns, segment mix, customer concentration."],
-    ["Financial trend", "C", "Ten years of margins, ROCE, debt and cash conversion."],
+    ["Financial trend", "C", "Ten years of margins, ROCE, debt and cash conversion.", 3],
     ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
     ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
     ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
@@ -173,8 +222,8 @@ const UNITS = [
     ["Macro regime", "C", "Rates, liquidity and rupee regime. Sets how much each desk counts."],
     ["Peer read-through", "B", "Uses results from peers that reported earlier."] ] },
   { n: "4", t: "Market activity and ownership research", q: "What are the price and the big holders telling us?", a: [
-    ["Price structure", "C", "Trend versus 50 and 200-day averages, and versus the Nifty 50.", 1],
-    ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100.", 1],
+    ["Price structure", "C", "Trend versus 50 and 200-day averages, and versus the Nifty 50. No edge found yet on the Nifty 100.", 2],
+    ["Momentum", "C", "12-month return skipping the last month, divided by volatility, ranked across the Nifty 100. Small 6-12 month edge so far.", 2],
     ["Liquidity", "C", "Daily traded value: can you exit without moving the price?", 1],
     ["Market beta", "C", "How much of the stock's move is just the market.", 1],
     ["Ownership", "C", "Promoter, FII, DII and mutual fund stake changes, and pledges."],
@@ -211,34 +260,42 @@ const UNITS = [
 ];
 const TOOLS = [
   ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
-  ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
+  ["Nifty 100 member list", 1], ["Scoring engine", 0], ["Fundamentals source", 0], ["News source", 0]
 ];
 const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
 
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function status(built) { return el("span", "status " + (built ? "built" : "planned"), built ? "Built" : "Planned"); }
+const STATUS = { 0: ["planned", "Planned"], 1: ["built", "Built"], 2: ["testing", "Testing"], 3: ["next", "Next"] };
+function status(code) { const [cls, label] = STATUS[code || 0]; return el("span", "status " + cls, label); }
+
+for (const k of ["now", "next", "you"]) {
+  document.getElementById(k + "-title").textContent = PROGRESS[k][0];
+  document.getElementById(k + "-text").textContent = PROGRESS[k][1];
+}
+const logEl = document.getElementById("log");
+for (const [d, text] of LOG) { const li = el("li"); li.append(el("time", null, d), el("span", null, text)); logEl.append(li); }
 
 const tree = document.getElementById("tree");
-let total = 0, built = 0; const byType = { C: 0, L: 0, B: 0 };
+let total = 0, built = 0, testing = 0; const byType = { C: 0, L: 0, B: 0 };
 for (const u of UNITS) {
   const li = el("li"), head = el("div", "unit-head");
-  const b = u.a.filter(x => x[3]).length;
-  total += u.a.length; built += b;
+  const b = u.a.filter(x => x[3] === 1 || x[3] === 2).length;
+  total += u.a.length; built += b; testing += u.a.filter(x => x[3] === 2).length;
   head.append(el("h3", null, u.t), el("span", "q", u.q));
   if (u.veto) head.append(el("span", "veto", "Has veto"));
   const count = el("span", "count", u.a.length + " analysts");
   if (b) { const em = el("em", null, " · " + b + " built"); count.append(em); }
   head.append(count);
   const leaves = el("ul", "leaves");
-  for (const [name, t, note, isBuilt] of u.a) {
+  for (const [name, t, note, code] of u.a) {
     byType[t]++;
-    const leaf = el("div", "leaf" + (isBuilt ? " is-built" : ""));
-    leaf.append(el("span", "name", name), el("span", "chip " + TYPE[t][1], TYPE[t][0]), status(isBuilt), el("span", "note", note));
+    const leaf = el("div", "leaf" + (code ? " is-" + STATUS[code][0] : ""));
+    leaf.append(el("span", "name", name), el("span", "chip " + TYPE[t][1], TYPE[t][0]), status(code), el("span", "note", note));
     const item = el("li"); item.append(leaf); leaves.append(item);
   }
   li.append(head, leaves); tree.append(li);
 }
-const stats = [[total, "analysts"], [UNITS.length, "units"], [byType.C, "code only"], [byType.B, "LLM + code"], [byType.L, "LLM only"], [built, "built and live", "built"]];
+const stats = [[total, "analysts"], [UNITS.length, "units"], [byType.C, "code only"], [byType.B, "LLM + code"], [byType.L, "LLM only"], [built, "built (" + testing + " in testing)", "built"]];
 const sEl = document.getElementById("stats");
 for (const [v, label, cls] of stats) { const s = el("div", "stat" + (cls ? " " + cls : "")); s.append(el("b", null, String(v)), el("span", null, label)); sEl.append(s); }
 const tEl = document.getElementById("tools");

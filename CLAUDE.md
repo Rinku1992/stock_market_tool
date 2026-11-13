@@ -25,5 +25,8 @@ Read `docs/BLUEPRINT.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They
 - After a push, check that new files are really in git: `git ls-files <path>`.
 - Log each design choice in `DECISIONS.md` with the reason.
 - Update the status table in `docs/BLUEPRINT.md` when a phase step is done.
+- Keep `docs/agent_tree.html` current: the PROGRESS block (now, next, waiting on the owner), the
+  LOG list, and each analyst's status code. It is the owner's view of what is being built.
+- Start each reply about build work with one line: "Working on: <analyst> (<unit>)".
 - Keep answers to the owner short, in simple English.
 - Commands that need the Kite login (`python -m smt.kite_cli ...`) only work on the owner's machine.
