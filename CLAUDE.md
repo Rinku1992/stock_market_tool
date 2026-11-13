@@ -22,6 +22,8 @@ Read `docs/BLUEPRINT.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They
 
 - Run `git pull` before starting. Work on a branch, run `pytest`, then merge to `main`.
 - Every change needs tests. `pytest` must pass before a push.
+- GitHub runs all tests on every push (`.github/workflows/tests.yml`). After a push, check the run passed:
+  `gh run list --limit 1`. A red run on `main` is fixed before any new work.
 - After a push, check that new files are really in git: `git ls-files <path>`.
 - Log each design choice in `DECISIONS.md` with the reason.
 - Update the status table in `docs/BLUEPRINT.md` when a phase step is done.
