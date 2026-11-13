@@ -57,3 +57,16 @@ def test_router_needs_no_llm_and_reads_the_lake(tmp_path):
 def test_graph_uses_the_router_by_default():
     state = run("X", date(2025, 2, 1), FeatureStore(), desks={"equity_research": []})
     assert state["verdict"].stock_type == "unknown"  # no lake, no filings: no guess
+
+
+def test_real_estate_from_segment_name_or_index_industry():
+    seg = [(date(2024, 9, 30), "Real Estate"), (date(2024, 12, 31), "Real Estate"), (date(2024, 12, 31), "Hospitality")]
+    st = classify(GENERAL, seg)
+    assert st.label == "real_estate" and st.triggers == ["segment 'Real Estate' in 2 filing(s), latest 2024-12-31"]
+    assert classify(GENERAL, industry="Realty").triggers == ["index list industry 'Realty'"]
+    assert classify(GENERAL, [(date(2024, 12, 31), "Jewellery")], "Consumer Durables").label == "general"
+
+
+def test_lender_wins_over_real_estate():
+    rows = GENERAL + [_row(date(2024, 12, 31), "loans", 900, "I")]
+    assert classify(rows, [(date(2024, 12, 31), "Real Estate")], "Realty").label == "lender"

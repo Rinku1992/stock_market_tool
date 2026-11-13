@@ -23,15 +23,15 @@ def _pick(headers: list[str], needle: str) -> str | None:
     return None
 
 
-def parse_index_list(payload: bytes) -> list[tuple[str, str]]:
-    """(symbol, ISIN) pairs from an index constituents CSV.
+def parse_index_list(payload: bytes) -> list[tuple[str, str, str | None]]:
+    """(symbol, ISIN, industry) from an index constituents CSV. Industry is None if there is no such column.
 
-    Matches columns by name ("symbol", "isin", optional "series"), so small header changes
-    do not break it. Fails loudly if the columns are not found.
+    Matches columns by name ("symbol", "isin", optional "series" and "industry"), so small header
+    changes do not break it. Fails loudly if the symbol or ISIN column is not found.
     """
     reader = csv.DictReader(io.StringIO(payload.decode("utf-8-sig")))
     headers = reader.fieldnames or []
-    sym, isin, series = _pick(headers, "symbol"), _pick(headers, "isin"), _pick(headers, "series")
+    sym, isin, series, ind = _pick(headers, "symbol"), _pick(headers, "isin"), _pick(headers, "series"), _pick(headers, "industry")
     if not sym or not isin:
         raise IndexListError(f"need a Symbol column and an ISIN column, found {headers}")
     out, seen = [], set()
@@ -45,7 +45,7 @@ def parse_index_list(payload: bytes) -> list[tuple[str, str]]:
             raise IndexListError(f"row for {s!r} has a bad ISIN {i!r}")
         if i not in seen:
             seen.add(i)
-            out.append((s, i))
+            out.append((s, i, ((r.get(ind) or "").strip() or None) if ind else None))
     if not out:
         raise IndexListError("no stock rows found")
     return out
@@ -73,4 +73,5 @@ class NseIndexListFile:
     def parse(self, payload: bytes) -> list[dict]:
         published = datetime(self.as_of.year, self.as_of.month, self.as_of.day, tzinfo=UTC)
         return [{"index_id": self.index_id, "instrument_id": isin, "valid_from": self.as_of, "valid_to": None,
-                 "published_at": published, "source_ref": sym} for sym, isin in parse_index_list(payload)]
+                 "industry": industry, "published_at": published, "source_ref": sym}
+                for sym, isin, industry in parse_index_list(payload)]

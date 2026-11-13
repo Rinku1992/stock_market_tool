@@ -145,12 +145,13 @@ SHAREHOLDING = Dataset(
 
 INDEX_MEMBERS = Dataset(
     name="index_members",
-    version=1,
+    version=2,  # v2: industry (as the index provider labels it, e.g. "Realty"); rebuilt from raw
     fields=(
         _f("index_id", pa.string()),
         _f("instrument_id", pa.string()),
         _f("valid_from", pa.date32()),
         _f("valid_to", pa.date32(), required=False),
+        _f("industry", pa.string(), required=False),
     ),
     key=("index_id", "instrument_id", "valid_from"),
 )
@@ -183,6 +184,20 @@ DOCUMENTS = Dataset(
     ),
     key=("doc_id",),
     enums=(("doc_type", DOC_TYPES),),
+)
+
+# Names of the reportable segments a results filing lists. Names only, no segment values.
+FILING_SEGMENTS = Dataset(
+    name="filing_segments",
+    version=1,
+    fields=(
+        _f("instrument_id", pa.string()),
+        _f("period_end", pa.date32()),
+        _f("consolidated", pa.bool_()),
+        _f("segment_name", pa.string()),
+    ),
+    key=("instrument_id", "period_end", "consolidated", "segment_name", "published_at"),
+    partition_by="period_end",
 )
 
 CALL_SOURCE_KINDS = frozenset({"analyst", "desk", "verdict"})
@@ -218,5 +233,6 @@ CALLS = Dataset(
 
 DATASETS: dict[str, Dataset] = {
     d.name: d
-    for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS, CALLS)
+    for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS, CALLS,
+              FILING_SEGMENTS)
 }

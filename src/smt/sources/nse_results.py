@@ -10,7 +10,8 @@ were rounded to crores), which matches our data contract.
 Trap in the older format: year-to-date contexts (ids starting "Four") carry the QUARTER's dates
 although the values are year-to-date. We set their start to the financial year start.
 
-Only plain (non-segment) facts are stored for now. Segment facts are skipped.
+Only plain (non-segment) facts are stored. Of the segment facts, only the segment NAMES are kept
+(filing_segments dataset), for the stock type router. Segment values are skipped.
 """
 
 import xml.etree.ElementTree as ET
@@ -59,6 +60,8 @@ CANONICAL = {
     "PropertyPlantAndEquipment": ("bs", "ppe"),
     "CapitalWorkInProgress": ("bs", "cwip"),
     "Equity": ("bs", "equity"),
+    "EquityShareCapital": ("bs", "share_capital"),
+    "BankBalanceOtherThanCashAndCashEquivalents": ("bs", "other_bank_balances"),
     "EquityAttributableToOwnersOfParent": ("bs", "equity_owners"),
     "NonControllingInterest": ("bs", "minority_interest"),
     "BorrowingsNoncurrent": ("bs", "borrowings_noncurrent"),
@@ -74,6 +77,7 @@ CANONICAL = {
     "CashFlowsFromUsedInInvestingActivities": ("cf", "cfi"),
     "CashFlowsFromUsedInFinancingActivities": ("cf", "cff"),
     "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": ("cf", "capex"),
+    "PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities": ("cf", "capex_intangibles"),
     "DividendsPaidClassifiedAsFinancingActivities": ("cf", "dividends_paid"),
     "InterestPaidClassifiedAsFinancingActivities": ("cf", "interest_paid"),
 }
@@ -97,6 +101,7 @@ class ResultsFile:
     period_end: date
     board_end_ist: datetime | None
     facts: list[Fact] = field(default_factory=list)
+    segments: list[str] = field(default_factory=list)  # names of reportable segments
 
 
 def _local(tag: str) -> str:
@@ -125,8 +130,11 @@ def parse_results_xbrl(payload: bytes) -> ResultsFile:
 
     text: dict[str, str] = {}
     raw: list[tuple[str, str, str]] = []  # (tag, context id, text)
+    segments: set[str] = set()
     for e in root:
         c = e.get("contextRef")
+        if _local(e.tag) == "DescriptionOfReportableSegment" and (e.text or "").strip():
+            segments.add(" ".join(e.text.split()))  # a name: kept even though its context is a breakdown
         if not c or c not in contexts or contexts[c][2]:
             continue
         tag, val = _local(e.tag), (e.text or "").strip()
@@ -161,6 +169,7 @@ def parse_results_xbrl(payload: bytes) -> ResultsFile:
         consolidated=text["NatureOfReportStandaloneConsolidated"].strip().lower() == "consolidated",
         fy_start=fy_start, period_end=date.fromisoformat(text["DateOfEndOfReportingPeriod"]),
         board_end_ist=board_end, facts=[Fact(t, s, e, v) for (t, s, e), v in facts.items()],
+        segments=sorted(segments),
     )
 
 
@@ -226,3 +235,18 @@ class NseResultsXbrlFile:
                 seen.add(key)
                 rows.append(row)
         return rows
+
+
+class NseResultsSegmentsFile(NseResultsXbrlFile):
+    """The same results file, read for its segment names only (filing_segments dataset)."""
+
+    dataset = "filing_segments"
+
+    def parse(self, payload: bytes) -> list[dict]:
+        rf = parse_results_xbrl(payload)
+        isin = rf.isin or self.isin
+        if not isin:
+            raise ResultsFileError(f"the file has no ISIN for {rf.symbol}; pass it with --isin")
+        published = self.published_at(rf)
+        return [{"instrument_id": isin, "period_end": rf.period_end, "consolidated": rf.consolidated,
+                 "segment_name": name, "published_at": published, "source_ref": None} for name in rf.segments]

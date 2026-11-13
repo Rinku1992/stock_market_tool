@@ -128,8 +128,12 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Debt to net worth uses total equity (Equity, including minority interest)**, the same as debt to
   equity for general companies, so the two are comparable (owner's call). Stored as the same
   feature, fin_debt_to_equity.
-- **The filing's own DebtEquityRatio and EPS tags are not used.** In the M&MFIN Sep 2026 filing they are
-  0.0, which looks unfilled. Another case where a zero is not a real zero.
+- **The filing's own DebtEquityRatio and EPS tags are not used; we compute our own.** CORRECTED 13 Nov 2026:
+  this entry first said they were 0.0 and looked unfilled. That was wrong: our listing divided every value
+  by 1 crore for display, which rounded per-share values and ratios to 0.0. The M&MFIN Sep 2026 filing
+  really has basic EPS Rs 6.54 (quarter) and DebtEquityRatio 0.0544. The 0.0544 looks like 5.44 shifted
+  two places (we compute 5.43); not verified. Lesson: per-share values and ratios are not in rupees and
+  must never be scaled by crore.
 - **New canonical items:** loans, borrowings_other_than_debt_securities, debt_securities, deposits,
   subordinated_liabilities, interest_income (InterestEarned), credit_cost (ImpairmentOnFinancialInstruments).
   Files loaded before this change were re-loaded with data_cli so the lake uses the new names.
@@ -204,3 +208,41 @@ Newest at the bottom. One entry per choice, with the reason.
   must use prices re-pulled on a later day, not this column, so it gets NSE's official close (see the
   "not verified" note on Kite candles just after 15:30). The column stays as a record of what the
   engine saw.
+- **Valuation stage A (13 Nov 2026, owner's spec): docs/VALUATION.md.** Five questions (clean numbers, cash
+  earnings, returns on capital, what the price assumes, value range with margin of safety), built in stages
+  A-D. Stage A: earnings power, capital returns, relative valuation. Code only, no LLM, all views neutral
+  until a backtest supports a rule.
+- **12-month figures = the last 4 quarters (month-end quarters).** A missing quarter is named and the
+  figure is not computed; it is never filled with zero.
+- **12-month cash flow = half year to this September + full year to March - half year to last September.**
+  Cash flow is only filed half-yearly. If the latest is a March filing, the full year is used as is.
+- **Averages use the balance sheet one year before the closing one (365 days, +/- 10).** If there is none,
+  the closing figure is used alone and the report says so.
+- **Share count = paid-up capital / face value, checked against share capital on the balance sheet (2%).**
+  A June or December filing whose paid-up capital differs by more than 2% from the nearest balance sheet
+  is flagged in the report, and the balance sheet figure is used. Real case: GODREJPROP Sep 2026 files
+  paid-up capital Rs 5 crore against share capital Rs 151 crore.
+- **A share-count jump above 20% is taken as a split or bonus;** only counts from that filing on are used.
+  Known gap: Kite prices are split-adjusted while counts come from filings, so a split after the latest
+  filing would distort market value until the next filing.
+- **Zero means missing for shares, face value, equity, revenue and total assets.** A filed 0 is real for
+  dividends and minority interest (the report says "filed as 0").
+- **Cash = cash, bank balances and current investments,** labelled that way in every report.
+- **EBIT = profit before tax and exceptional items + finance costs - other income** (operating EBIT).
+  EBITDA adds depreciation. Negative EBITDA: EV/EBITDA "not meaningful". A loss: no P/E.
+- **Real estate: EBIT and EBITDA lead WITH other income, and are also shown without (owner's call,
+  13 Nov 2026).** ROIC uses the version with other income. Reason: GODREJPROP's operating EBIT without
+  other income is Rs -547 crore while reported profit is positive; other income may include interest from
+  joint ventures and project partners (not verified). With it: ROIC 5.4%, EV/EBITDA 32.9x.
+- **Lease liabilities are left out** of debt, EV and invested capital: they are not in quarterly filings.
+  Stated in each report. Lease-heavy companies (offices, stores) look better on ROIC than they are.
+- **Real estate rule:** the Nifty 100 list's industry "Realty", or a filing segment named "Real Estate" or
+  "Realty". Inventory share was rejected: TITAN's jewellery stock is 71% of assets, like GODREJPROP's.
+  index_members moved to schema v2 with an `industry` column, rebuilt from the stored raw list. Filings
+  now also store segment NAMES (dataset filing_segments), not segment values.
+- **Lenders skip ROIC, EV, EV/EBITDA, EV/Sales, FCF yield, owner earnings, cash conversion and accruals.**
+  Borrowed money is a lender's raw material and lending is operating cash outflow, so these mean nothing.
+  P/B leads, next to ROE.
+- **Checked against published figures (owner, 13 Nov 2026):** P/B and EV/EBITDA for TCS, M&MFIN and TITAN
+  match public sites. TITAN's P/E differs because public sites have not yet rolled in the Sep 2026 quarter;
+  ours includes it, so it is more current.

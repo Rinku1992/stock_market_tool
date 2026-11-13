@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Call logger: built, first day recorded", "13 Nov: 4,830 calls for 115 stocks (holdings + Nifty 100), recorded after the close. Today only, never backfilled, so they can be scored honestly later."],
-  next: ["Bank playbook", "Router. Needs one bank results file to check bank tag names."],
+  now: ["Valuation stage A: built", "Earnings power, capital returns (ROIC) and relative valuation from NSE filings, with lender and real estate rules. Views stay neutral. Checked against public P/B and EV/EBITDA for TCS, M&MFIN, TITAN."],
+  next: ["Valuation stage B, or the bank playbook", "Stage B: clean-up of one-off items, leases and R&D from annual reports. Bank playbook needs one bank results file."],
   you: ["Record each trading day, plus one bank file", "After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["13 Nov", "Valuation stage A built (code, no LLM, views neutral): earnings power, ROIC and relative valuation. Router now spots real estate (GODREJPROP). Real estate EBIT shown with and without other income."],
   ["13 Nov", "Call logger built: records every analyst, desk and verdict call per stock and horizon, only for today after 15:30, no duplicates, prices must be current. First day: 115 stocks, 4,830 calls."],
   ["13 Nov", "GitHub now runs all tests on every push, so a broken push is caught at once."],
   ["13 Nov", "Calibration run recorded as weights version 2026-11-13.2 (all 0, reasons saved; old file kept in history). Header now shows the real scored dates per horizon."],
@@ -210,7 +211,7 @@ const UNITS = [
     ["Point-in-time librarian", "C", "Makes sure backtests only see what was known on each date."],
     ["Input guard", "C", "Treats news and web text as untrusted and blocks hidden instructions."] ] },
   { n: "R", t: "Router", q: "Labels the stock so each desk uses the right playbook.", a: [
-    ["Stock type router", "C", "Lender or general, from the tags in the company's own filings. Shows which tags made the call. Banks not verified yet; other types later.", 1],
+    ["Stock type router", "C", "Lender, real estate or general, from the company's own filings and the index list. Shows what made the call. Banks not verified yet; other types later.", 1],
     ["Sector playbooks", "C", "Swaps the metrics per type, for example bad loans and deposits for banks."] ] },
   { n: "1", t: "Market news research", q: "What is happening to the company, and does it matter?", a: [
     ["Event clusterer", "B", "Turns many articles on one story into one event."],
@@ -225,8 +226,12 @@ const UNITS = [
     ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
     ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
     ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
-    ["Reverse valuation", "C", "Works out what growth today's price already assumes."],
-    ["Relative valuation", "C", "Valuation multiples versus own history and peers."],
+    ["Accounting adjustments", "C", "Cleans one-off items, leases and R&D before valuing (valuation stage B)."],
+    ["Earnings power", "C", "12-month profit, core profit, free cash flow, owner earnings, cash conversion, accruals. Views neutral.", 2],
+    ["Capital returns (ROIC)", "C", "ROE and ROIC with the formula shown; lenders: ROE, return on assets, credit cost. Views neutral.", 2],
+    ["Relative valuation", "C", "P/E, P/B, dividend yield, EV/EBITDA, EV/Sales, FCF yield. P/B leads for lenders and real estate. Views neutral; history and peers later.", 2],
+    ["Reverse valuation", "C", "Works out what growth today's price already assumes (valuation stage C)."],
+    ["Value range", "C", "Low, base and high value with a margin of safety (valuation stage D)."],
     ["Credit", "B", "Rating changes, debt due dates, interest cover."],
     ["Legal and regulatory", "B", "SEBI orders, tax demands, court cases."] ] },
   { n: "3", t: "Industry and geopolitical research", q: "What is the world around the company doing?", a: [
@@ -275,7 +280,7 @@ const UNITS = [
 ];
 const TOOLS = [
   ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
-  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 0], ["Scoring engine", 0], ["Results file reader (NSE XBRL)", 1], ["Bulk fundamentals source", 0], ["News source", 0]
+  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 1], ["Scoring engine", 0], ["Results file reader (NSE XBRL)", 1], ["Bulk fundamentals source", 0], ["News source", 0]
 ];
 const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
 

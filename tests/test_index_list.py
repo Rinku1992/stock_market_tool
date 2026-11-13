@@ -17,7 +17,26 @@ GOOD = ("﻿Company Name,Industry,Symbol,Series,ISIN Code\n"
 
 
 def test_parse_matches_columns_by_name_and_skips_non_eq_and_duplicates():
-    assert parse_index_list(GOOD) == [("RELIANCE", "INE002A01018"), ("INFY", "INE009A01021")]
+    assert parse_index_list(GOOD) == [("RELIANCE", "INE002A01018", "Oil Gas"), ("INFY", "INE009A01021", "IT")]
+    assert parse_index_list(b"Symbol,ISIN Code\nRELIANCE,INE002A01018\n") == [("RELIANCE", "INE002A01018", None)]
+
+
+def test_rebuild_index_members_from_stored_raw(tmp_path):
+    import shutil
+
+    from smt.data_cli import rebuild_index_members
+
+    f = tmp_path / "list.csv"
+    f.write_bytes(GOOD)
+    lake = Lake(tmp_path / "lake")
+    ingest(NseIndexListFile(f, "IDX:NIFTY100", date(2026, 11, 1)), lake)
+    f.unlink()  # the owner's file is gone: the rebuild must work from the stored raw copy
+    shutil.rmtree(lake.canonical / "index_members")
+    assert index_members(lake, "IDX:NIFTY100") == []
+    assert rebuild_index_members(lake) == 1
+    assert index_members(lake, "IDX:NIFTY100") == [("INE009A01021", "INFY"), ("INE002A01018", "RELIANCE")]
+    got = lake.query(f"SELECT instrument_id, industry FROM {lake.read_sql('index_members')} ORDER BY 1")
+    assert got == [("INE002A01018", "Oil Gas"), ("INE009A01021", "IT")]
 
 
 def test_missing_isin_column_fails_loudly():
