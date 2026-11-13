@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Fundamentals at scale", "Financial trend works on real Reliance filings. Hand-downloading files for 100 stocks will not scale, so a bulk source is needed next."],
+  now: ["Financial trend on your top 10 holdings", "Equity research. Loading 5 quarters of filings for your 10 largest holdings, so growth and trends can be computed."],
   next: ["Calibration officer (learning loop)", "Track record office. Re-scores each analyst on real outcomes and updates desk weights, so desks improve over time."],
-  you: ["Load the 3 files, and decide on a bulk source", "Run the results command on the Reliance files. Then choose how to get filings for all 100 stocks."]
+  you: ["Results files for your top 10 holdings", "Run top-holdings to see the 10 stocks. For each, download the last 5 quarters (consolidated XBRL) from NSE Integrated Filing - Financials."]
 };
 const LOG = [
+  ["13 Nov", "Top-holdings command: lists your 10 largest holdings by money invested and which quarters are loaded."],
   ["13 Nov", "Financial trend analyst built. Reads NSE results XBRL files (old and new formats) with point-in-time timing. Checked on 3 real Reliance filings."],
   ["13 Nov", "Market activity desk lead built: code combines the 4 analysts using versioned weights; LLM summary is checked by code."],
   ["13 Nov", "Fair test on the Nifty 100: neither price rule beats the median stock. Both kept as context only, not verdict inputs."],
