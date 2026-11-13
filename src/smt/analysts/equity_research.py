@@ -73,6 +73,17 @@ def financial_trend(ctx: AnalystContext) -> AnalystReport:
         features["fin_rev_growth_yoy"] = g_rev
         if g_np is not None:
             features["fin_np_growth_yoy"] = g_np
+        # one-offs: show exceptional items and growth before them, so a big jump can be judged
+        ex_now, ex_prev = _pick(rows, q, "Q", "exceptional_items") or 0.0, _pick(rows, prev, "Q", "exceptional_items") or 0.0
+        if ex_now or ex_prev:
+            parts.append(f"Exceptional items: {_crore(ex_now)} this quarter, {_crore(ex_prev)} a year ago.")
+        core_now, core_prev = _pick(rows, q, "Q", "pbt_before_exceptional"), _pick(rows, prev, "Q", "pbt_before_exceptional")
+        if core_now is not None and core_prev and core_prev > 0:
+            g_core = core_now / core_prev - 1
+            parts.append(f"Profit before tax and exceptional items {_pct(g_core)}.")
+            features["fin_core_pbt_growth_yoy"] = g_core
+        if g_np is not None and abs(g_np) >= 0.5 and abs(g_np) > 2 * abs(g_rev):
+            parts.append("Check: profit moved far more than revenue, so look for one-offs or a weak base quarter.")
     else:
         gaps.append("growth: same quarter last year not loaded")
 
@@ -101,6 +112,8 @@ def financial_trend(ctx: AnalystContext) -> AnalystReport:
         if capex is not None:
             line += f"; capex {_crore(capex)}, free cash flow {_crore(c['value'] - capex)}"
         parts.append(line + ".")
+        if c["value"] < 0:
+            parts.append("Check: operating cash flow is negative while the company reports a profit.")
     else:
         gaps.append("cash flow: not in the loaded filings")
 

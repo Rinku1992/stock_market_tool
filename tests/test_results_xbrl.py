@@ -146,3 +146,17 @@ def test_breakdown_contexts_are_skipped():
         '<f:RevenueFromOperations contextRef="I_Other2" unitRef="INR" decimals="-7">5</f:RevenueFromOperations></xbrli:xbrl>'))
     rf = parse_results_xbrl(x.encode())
     assert [f.value for f in rf.facts if f.tag == "RevenueFromOperations"] == [1000 * CR]
+
+
+def test_big_profit_jump_shows_one_offs_and_core_growth(tmp_path):
+    lake = Lake(tmp_path / "lake")
+    _load(lake, tmp_path, "old.xml", q=("2023-10-01", "2023-12-31"), fy="2023-04-01", board=("2024-01-19", "19:00:00"),
+          facts=[("RevenueFromOperations", 900), ("ProfitLossForPeriod", 50), ("ProfitBeforeExceptionalItemsAndTax", 100),
+                 ("ExceptionalItemsBeforeTax", -40)])
+    _load(lake, tmp_path, "new.xml", facts=PL + [("ProfitBeforeExceptionalItemsAndTax", 110), ("ExceptionalItemsBeforeTax", 0)],
+          ytd=[("ProfitLossForPeriod", 250)], cf_ytd=[("CashFlowsFromUsedInOperatingActivities", -80)])
+    ctx = AnalystContext(symbol="X", as_of=date(2025, 2, 1), store=FeatureStore(), lake=lake, instrument_id="INE002A01018")
+    f = financial_trend(ctx).finding
+    assert "net profit +100.0%" in f and "Exceptional items: Rs 0 crore this quarter, Rs -40 crore a year ago." in f
+    assert "Profit before tax and exceptional items +10.0%." in f
+    assert "look for one-offs" in f and "operating cash flow is negative" in f
