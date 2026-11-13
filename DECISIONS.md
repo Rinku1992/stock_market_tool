@@ -160,3 +160,11 @@ Newest at the bottom. One entry per choice, with the reason.
   market beta give no direction. Regime (report only): price structure 3-5 months was +0.3 points
   with the Nifty above its 200-day average and -3.4 points below it. Weights are not written until the
   owner says so.
+- **Calibration header and source show scored dates per horizon, from positive and negative views only.**
+  The first header said "2022-02-28 to 2026-06-30": the start came from liquidity's neutral views and
+  the end was right only for the short horizon. Real spans: short 2022-09-30 to 2026-06-30, mid
+  2022-09-30 to 2026-01-30, long none (no directional 2-year views).
+- **A second weights version on the same day gets ".2", ".3" ...** so every version name is unique and
+  reports can say which weights they used.
+- **First calibration run written (owner's OK, 13 Nov 2026):** market_activity weights version
+  2026-11-13.2, all 0, with the reasons. The earlier hand-set version is kept in desks/weights/history/.

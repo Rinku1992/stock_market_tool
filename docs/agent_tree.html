@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Calibration officer: built, weights not written yet", "Sets desk weights from measured edge with rules fixed in advance. On the Nifty 100 no market activity analyst passes, so all weights stay 0. Waiting for your OK before writing."],
+  now: ["Calibration officer: built and run", "Market activity weights version 2026-11-13.2 recorded from the Nifty 100 run. No analyst passed, so all weights are 0, with the reasons saved."],
   next: ["Bank playbook", "Router. Needs one bank results file to check bank tag names."],
   you: ["One bank results file", "Upload one bank's results XBRL (for example HDFCBANK), so the router can be checked on bank tag names. Banks are not verified yet."]
 };
 const LOG = [
+  ["13 Nov", "Calibration run recorded as weights version 2026-11-13.2 (all 0, reasons saved; old file kept in history). Header now shows the real scored dates per horizon."],
   ["13 Nov", "Calibration officer built (code, no LLM): needs 300+ cases, a steady edge in 3 time periods and a shuffle test. Nifty 100 run: no market activity analyst passes, all weights 0. Momentum's 6-12 month edge came from the first period only."],
   ["13 Nov", "Router and lender playbook reviewed: M&MFIN net interest income, credit cost and debt to net worth match the expected values. Pushed and checked on a fresh copy (111 tests)."],
   ["13 Nov", "Stock type router built (code, no LLM): M&MFIN is a lender, the other 7 stocks are general. Lender playbook for financial trend: loans Rs 152,771 cr, debt to net worth 5.43, credit cost 1.65% of loans a year. TITAN output unchanged."],
