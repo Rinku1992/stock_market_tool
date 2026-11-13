@@ -1,3 +1,4 @@
+import re
 from datetime import date
 
 import pytest
@@ -52,7 +53,8 @@ def test_conflicts_are_listed_even_with_zero_weight():
 
 def test_market_activity_weights_file_is_valid_and_versioned():
     w = load_weights("market_activity")
-    assert w["version"] == "2026-11-13" and set(w["weights"]) == {"price_structure", "momentum", "liquidity", "market_beta"}
+    # versions are dated, with .2, .3 ... for a second version on the same day (written by smt.calibrate)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}(\.\d+)?", w["version"]) and w["source"] and set(w["weights"]) == {"price_structure", "momentum", "liquidity", "market_beta"}
     assert all(w["why"][k] for k in w["weights"])
     assert load_weights("no_such_desk")["weights"] == {}
 
@@ -98,7 +100,7 @@ def test_template_summary_passes_its_own_check():
     d = lead_report("market_activity", "X", D, reps)
     src = "\n".join(d.facts + d.notes + ["3-5 months 6-12 months 2 years"])
     assert check_summary(d.summary, src, set(d.analysts) | {"desk"}) == []
-    assert d.conflicts and d.data_gaps == ["x"] and d.weights_version == "2026-11-13"
+    assert d.conflicts and d.data_gaps == ["x"] and d.weights_version == load_weights("market_activity")["version"]
 
 
 def test_desk_report_needs_all_horizons():

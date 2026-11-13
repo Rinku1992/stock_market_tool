@@ -168,3 +168,7 @@ Newest at the bottom. One entry per choice, with the reason.
   reports can say which weights they used.
 - **First calibration run written (owner's OK, 13 Nov 2026):** market_activity weights version
   2026-11-13.2, all 0, with the reasons. The earlier hand-set version is kept in desks/weights/history/.
+- **Process slip, 13 Nov 2026:** merge 4b2f82f was pushed with 2 failing tests in test_desk_lead.py (they
+  expected the weights version to be exactly "2026-11-13"). The push command did not stop on a pytest
+  failure. Fixed in the next commit: the tests now follow the version in the weights file. From now on
+  the push runs only after pytest exits cleanly.
