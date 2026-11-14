@@ -246,3 +246,23 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Checked against published figures (owner, 13 Nov 2026):** P/B and EV/EBITDA for TCS, M&MFIN and TITAN
   match public sites. TITAN's P/E differs because public sites have not yet rolled in the Sep 2026 quarter;
   ours includes it, so it is more current.
+- **LLM budget guard in llm.py, before any real LLM use (14 Nov 2026).** Every client (Claude and FakeLLM)
+  goes through one guard: cache, then estimate, then dry run or caps, then the call, then the tokens from
+  the API's usage field are recorded in llm_calls (new columns input_tokens, output_tokens, cache_hit,
+  run_id; added to the existing table, older rows keep empty values).
+- **Caps count input + output tokens of real calls:** SMT_LLM_MAX_TOKENS_PER_RUN (default 100,000; one
+  client = one engine run) and SMT_LLM_MAX_TOKENS_PER_DAY (default 300,000; India day, summed from
+  llm_calls so it covers every run). A call that would pass either cap raises LLMBudgetExceeded with the
+  tokens used so far; nothing is sent. Never silent.
+- **The estimate is deliberately high:** input = characters / 3 + 10 (English is about 4 characters a
+  token), output = max_tokens, the most the API can return (thinking counts inside it). So a call is
+  stopped before it could pass a cap, not after. Input tokens recorded include any prompt-cache tokens.
+- **Cache key = model + system prompt + prompt** (as asked; max_tokens is not part of it). A hit returns
+  the stored answer with no API call and is recorded as a row with cache_hit = true and 0 tokens, so hits
+  are counted separately and do not use the caps. Only real answers are served from the cache.
+- **Dry run (SMT_LLM_DRY_RUN=1)** prints task, model and estimated tokens per call, warns if the run cap
+  would be passed, returns an empty answer and records nothing.
+- **Model per task:** SMT_CLAUDE_MODEL_<TASK> (task upper-cased, other characters as "_") overrides
+  SMT_CLAUDE_MODEL for that task only. No task uses an override yet; the model in use is unchanged.
+- **First real call, 14 Nov 2026:** task key_check, one-line prompt, max_tokens 20, model
+  claude-sonnet-5-5 (SMT_CLAUDE_MODEL). Answer "ready"; 18 input + 4 output = 22 tokens recorded.
