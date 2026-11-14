@@ -180,6 +180,7 @@ const PROGRESS = {
   you: ["Record each trading day, plus one bank file", "After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["14 Nov", "LLM budget guard built: every LLM call records its tokens, stops before passing a run or day cap, reuses stored answers (cache), and has a dry run. First real call (key check): 22 tokens."],
   ["13 Nov", "Valuation stage A built (code, no LLM, views neutral): earnings power, ROIC and relative valuation. Router now spots real estate (GODREJPROP). Real estate EBIT shown with and without other income."],
   ["13 Nov", "Call logger built: records every analyst, desk and verdict call per stock and horizon, only for today after 15:30, no duplicates, prices must be current. First day: 115 stocks, 4,830 calls."],
   ["13 Nov", "GitHub now runs all tests on every push, so a broken push is caught at once."],

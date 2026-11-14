@@ -91,7 +91,7 @@ sentinel (C), depth controller (C)
 1. An analyst is a plain Python function: `AnalystContext -> AnalystReport`.
 2. Only `src/smt/graph.py` imports LangGraph. A test enforces this.
 3. The graph is fixed. No LLM decides which analyst runs next.
-4. All LLM calls go through `src/smt/llm.py`. Every call is recorded.
+4. All LLM calls go through `src/smt/llm.py`. Every call is recorded with its tokens, and a budget guard stops any call that would pass the run or day token cap (see DECISIONS.md, 14 Nov 2026).
 5. LLM extracts facts with exact quotes. Code decides what facts mean.
 6. Every feature has `known_at` and `origin` (code or llm). Reads are point-in-time.
 7. Scoring engine and backtest engine are plain code with no LLM.

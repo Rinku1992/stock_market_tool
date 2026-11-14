@@ -53,6 +53,10 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     response VARCHAR NOT NULL,
     called_at TIMESTAMP NOT NULL
 );
+ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS input_tokens BIGINT;
+ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS output_tokens BIGINT;
+ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN;
+ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS run_id VARCHAR;
 """
 
 
@@ -134,15 +138,44 @@ class FeatureStore:
         with self._lock:
             return self._con.execute("SELECT count(*) FROM desk_reports WHERE run_id = ?", [run_id]).fetchone()[0]
 
-    def log_llm_call(self, *, task: str, model: str, system: str | None, prompt: str, response: str) -> str:
-        """The recorder. Every LLM output is saved with a timestamp."""
+    def log_llm_call(self, *, task: str, model: str, system: str | None, prompt: str, response: str,
+                     input_tokens: int | None = None, output_tokens: int | None = None, cache_hit: bool = False,
+                     run_id: str | None = None) -> str:
+        """The recorder. Every LLM output is saved with a timestamp and the tokens the API reported.
+        A cache hit is saved too (cache_hit = true, 0 tokens), so hits are counted separately."""
         call_id = uuid.uuid4().hex
         with self._lock:
             self._con.execute(
-                "INSERT INTO llm_calls VALUES (?,?,?,?,?,?,?)",
-                [call_id, task, model, system, prompt, response, _now()],
+                "INSERT INTO llm_calls (call_id, task, model, system, prompt, response, called_at, input_tokens, "
+                "output_tokens, cache_hit, run_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                [call_id, task, model, system, prompt, response, _now(), input_tokens, output_tokens, cache_hit, run_id],
             )
         return call_id
+
+    def cached_llm_response(self, *, model: str, system: str | None, prompt: str) -> str | None:
+        """The stored answer to the same model, system prompt and prompt, from a real (not cached) call."""
+        with self._lock:
+            row = self._con.execute(
+                "SELECT response FROM llm_calls WHERE model = ? AND system IS NOT DISTINCT FROM ? AND prompt = ? "
+                "AND NOT coalesce(cache_hit, false) ORDER BY called_at DESC LIMIT 1", [model, system, prompt]).fetchone()
+        return row[0] if row else None
+
+    def llm_tokens_since(self, since_utc: datetime) -> int:
+        """Input + output tokens of real calls made at or after since_utc (naive UTC)."""
+        with self._lock:
+            return self._con.execute(
+                "SELECT coalesce(sum(coalesce(input_tokens, 0) + coalesce(output_tokens, 0)), 0) FROM llm_calls "
+                "WHERE called_at >= ? AND NOT coalesce(cache_hit, false)", [since_utc]).fetchone()[0]
+
+    def llm_usage(self) -> list[tuple]:
+        """(IST day, task, model, real calls, cache hits, input tokens, output tokens), newest day first."""
+        with self._lock:
+            return self._con.execute(
+                """SELECT CAST(called_at + INTERVAL 330 MINUTE AS DATE) AS day, task, model,
+                          count(*) FILTER (WHERE NOT coalesce(cache_hit, false)),
+                          count(*) FILTER (WHERE coalesce(cache_hit, false)),
+                          coalesce(sum(input_tokens), 0), coalesce(sum(output_tokens), 0)
+                   FROM llm_calls GROUP BY ALL ORDER BY day DESC, task, model""").fetchall()
 
     def count_llm_calls(self) -> int:
         with self._lock:
