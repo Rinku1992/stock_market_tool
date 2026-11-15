@@ -200,6 +200,34 @@ FILING_SEGMENTS = Dataset(
     partition_by="period_end",
 )
 
+REPORT_FACT_ITEMS = frozenset({
+    "rnd_expenditure", "lease_liabilities_current", "lease_liabilities_noncurrent", "interest_on_lease_liabilities",
+    "depreciation_right_of_use", "share_based_payment_expense",
+})
+
+# Clean-up items read from annual reports by the LLM, each with the exact quote and page it came from.
+# Code checks every row; only verified = true may be used. published_at = the day the report was filed
+# (given by the owner, never guessed). value is absolute INR, converted by code from the stated unit.
+REPORT_FACTS = Dataset(
+    name="report_facts",
+    version=1,
+    fields=(
+        _f("instrument_id", pa.string()),
+        _f("fiscal_year_end", pa.date32()),
+        _f("item", pa.string()),
+        _f("value", pa.float64(), required=False),  # INR, absolute; empty when the extraction was unusable
+        _f("unit", pa.string(), required=False),  # the unit the report states (crore, lakh, million)
+        _f("page", pa.int32(), required=False),  # PDF page number, counted from 1 (not the printed number)
+        _f("quote", pa.string(), required=False),  # exact text from that page
+        _f("extractor", pa.string()),  # model id
+        _f("verified", pa.bool_()),
+        _f("check_note", pa.string(), required=False),  # why a row failed the checks
+    ),
+    key=("instrument_id", "fiscal_year_end", "item", "published_at"),
+    partition_by="fiscal_year_end",
+    enums=(("item", REPORT_FACT_ITEMS),),
+)
+
 CALL_SOURCE_KINDS = frozenset({"analyst", "desk", "verdict"})
 HORIZONS = frozenset({"short", "mid", "long"})
 DIRECTIONS = frozenset({"positive", "negative", "neutral"})
@@ -234,5 +262,5 @@ CALLS = Dataset(
 DATASETS: dict[str, Dataset] = {
     d.name: d
     for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS, CALLS,
-              FILING_SEGMENTS)
+              FILING_SEGMENTS, REPORT_FACTS)
 }

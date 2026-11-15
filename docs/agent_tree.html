@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Valuation stage A: built", "Earnings power, capital returns (ROIC) and relative valuation from NSE filings, with lender and real estate rules. Views stay neutral. Checked against public P/B and EV/EBITDA for TCS, M&MFIN, TITAN."],
-  next: ["Valuation stage B, or the bank playbook", "Stage B: clean-up of one-off items, leases and R&D from annual reports. Bank playbook needs one bank results file."],
+  now: ["Valuation stage B step 1: annual report facts extracted", "Leases, R&D and ESOP cost read from TCS and TITAN FY26 reports by the LLM with exact quotes, checked by code. All 20 figures need your review (several numbers in each quote); 2 items not found. 9,842 tokens."],
+  next: ["Your review of the 20 figures, then stage B step 2", "Step 2: use confirmed figures to clean up earnings and capital (lease-adjusted debt and ROIC, R&D)."],
   you: ["Record each trading day, plus one bank file", "After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["15 Nov", "Annual report extraction built (valuation stage B step 1): the LLM copies figures with exact quotes; code checks quote, number and unit. Quotes with several numbers are held for your review. TCS and TITAN FY26 run: 9,842 tokens."],
   ["14 Nov", "LLM budget guard built: every LLM call records its tokens, stops before passing a run or day cap, reuses stored answers (cache), and has a dry run. First real call (key check): 22 tokens."],
   ["13 Nov", "Valuation stage A built (code, no LLM, views neutral): earnings power, ROIC and relative valuation. Router now spots real estate (GODREJPROP). Real estate EBIT shown with and without other income."],
   ["13 Nov", "Call logger built: records every analyst, desk and verdict call per stock and horizon, only for today after 15:30, no duplicates, prices must be current. First day: 115 stocks, 4,830 calls."],
@@ -227,7 +228,7 @@ const UNITS = [
     ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
     ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
     ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
-    ["Accounting adjustments", "C", "Cleans one-off items, leases and R&D before valuing (valuation stage B)."],
+    ["Accounting adjustments", "B", "Cleans one-off items, leases and R&D before valuing (valuation stage B). Step 1 built: lease, R&D and ESOP figures read from annual reports with exact quotes, checked by code.", 2],
     ["Earnings power", "C", "12-month profit, core profit, free cash flow, owner earnings, cash conversion, accruals. Views neutral.", 2],
     ["Capital returns (ROIC)", "C", "ROE and ROIC with the formula shown; lenders: ROE, return on assets, credit cost. Views neutral.", 2],
     ["Relative valuation", "C", "P/E, P/B, dividend yield, EV/EBITDA, EV/Sales, FCF yield. P/B leads for lenders and real estate. Views neutral; history and peers later.", 2],
