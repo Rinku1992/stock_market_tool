@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Valuation stage B step 1: annual report facts extracted", "Leases, R&D and ESOP cost read from TCS and TITAN FY26 reports by the LLM with exact quotes, checked by code. All 20 figures need your review (several numbers in each quote); 2 items not found. 9,842 tokens."],
-  next: ["Your review of the 20 figures, then stage B step 2", "Step 2: use confirmed figures to clean up earnings and capital (lease-adjusted debt and ROIC, R&D)."],
+  now: ["Valuation stage B step 1: owner review", "Confirm command built (appends a row, never edits). 12 rows confirmed (TITAN leases and ESOP, TCS lease interest). TITAN standalone R&D Rs 32.28 crore added. Lease interest rate check (3% to 15%) added for future runs."],
+  next: ["Your call on the 8 TCS rows left, then stage B step 2", "TCS lease note total (11,283) points to non-current lease 9,453, not 453. Step 2: use confirmed figures for lease-adjusted debt and ROIC, and R&D."],
   you: ["Record each trading day, plus one bank file", "After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["15 Nov", "Owner review of report facts: confirm command (new row, never edits), 12 rows confirmed, TITAN standalone R&D added with its quote checked by code, lease interest rate check (3% to 15%) for future runs."],
   ["15 Nov", "Annual report extraction built (valuation stage B step 1): the LLM copies figures with exact quotes; code checks quote, number and unit. Quotes with several numbers are held for your review. TCS and TITAN FY26 run: 9,842 tokens."],
   ["14 Nov", "LLM budget guard built: every LLM call records its tokens, stops before passing a run or day cap, reuses stored answers (cache), and has a dry run. First real call (key check): 22 tokens."],
   ["13 Nov", "Valuation stage A built (code, no LLM, views neutral): earnings power, ROIC and relative valuation. Router now spots real estate (GODREJPROP). Real estate EBIT shown with and without other income."],

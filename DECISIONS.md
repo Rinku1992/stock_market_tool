@@ -311,3 +311,32 @@ Newest at the bottom. One entry per choice, with the reason.
   which looks wrong); a thinking model's thinking counts inside max_tokens (4,000).
 - **First real run, 15 Nov 2026 (claude-sonnet-5-5):** 2 API calls, 7,703 input + 2,139 output = 9,842
   tokens (dry-run ceiling 14,206), plus 1 cache hit.
+
+## Report facts: owner review (15 Nov 2026)
+
+- **Confirm appends, never edits:** `python -m smt.report_facts confirm SYMBOL:item:YYYY-MM-DD --note "why"`
+  copies the current row through an adapter (owner_review) with verified = true and check_note "confirmed by
+  owner review: <note>". The confirmation payload is kept as raw.
+- **A confirmation's published_at = the time of confirmation,** not the filing day. Reason: the lake keeps
+  the newest ingestion per key, so a same-key confirmation would be undone by any later reparse of the LLM
+  extraction. A new key avoids that, and a backtest before the review correctly sees the unconfirmed row.
+  Readers take the latest row per instrument, fiscal year and item by published_at
+  (owner_review.current_facts).
+- **Confirmed 15 Nov 2026:** TITAN's 5 items for FY26 and FY25 (10 rows: right-of-use depreciation, lease
+  interest, current and non-current lease liabilities, ESOP expense; 17.3 and 14.2 are note numbers; the
+  ESOP jump from 13 to 78 is noted, Titan has a 2023 performance stock unit scheme) and TCS lease interest
+  778 / 631 (2 rows). The first TITAN confirmations doubled the note prefix; corrected by appending a second
+  confirmation with the owner's exact words (both kept, the newer one wins).
+- **Owner-entered figures (`add`):** for items the LLM is not asked for. Code still checks the quote is on
+  that PDF page word for word, the unit is stated there and the value is in the quote; the several-numbers
+  rule does not apply (the owner has chosen the column). published_at = end of the filing day. First one:
+  TITAN rd_expense_standalone FY26 Rs 32.28 crore, PDF page 141, quote "c) Total 32.28 26.35", note "does not
+  match Rs 12.99 crore on page 65; standalone only". New enum value rd_expense_standalone (contract rule 3).
+- **Lease interest rate check, future runs:** interest on lease liabilities (latest year) / average of total
+  lease liabilities (current + non-current, both years) must be 3% to 15%; otherwise every lease row
+  (interest, current, non-current) is flagged "needs review: implied lease interest rate X% is outside 3% to
+  15%". Not worked out when a figure is missing. Runs on reparse too, but never touches confirmed rows.
+  Limit: it would not have caught TCS's 453 (778 / average of 2,283 and 9,392 = 13.3%, inside the range).
+- **TCS non-current lease FY26 is very likely 9,453, not 453 (not yet confirmed):** the lease note (PDF page
+  201) gives total lease liabilities at year end 11,283 (FY26) and 9,392 (FY25); less current 1,830 and 1,554
+  gives 9,453 and 7,838. The balance sheet line extracts as "Lease liabilities  9 453 7,838".

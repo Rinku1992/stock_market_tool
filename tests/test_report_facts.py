@@ -211,3 +211,93 @@ def test_item_the_report_says_does_not_exist_is_stored_as_not_found_with_quote(t
     rnd = rows["rnd_expenditure"]
     assert rnd["value"] is None and rnd["quote"] is None and rnd["check_note"] == "not found: not mentioned in the report"
     ingest(ReportFactsRecord(ex), Lake(tmp_path / "lake"))  # stored through the contract with value null
+
+
+def _lease_rows(interest, cur, noncur, cur25, noncur25):
+    mk = lambda v: {"value": v * 1e7, "verified": True, "check_note": None}
+    return {("interest_on_lease_liabilities", FY): mk(interest), ("lease_liabilities_current", FY): mk(cur),
+            ("lease_liabilities_noncurrent", FY): mk(noncur), ("lease_liabilities_current", YEARS[1]): mk(cur25),
+            ("lease_liabilities_noncurrent", YEARS[1]): mk(noncur25),
+            ("depreciation_right_of_use", FY): mk(400)}
+
+
+def test_implied_lease_interest_rate_check():
+    from smt.sources.annual_report import lease_rate_check
+    ok = _lease_rows(247, 461, 2712, 363, 2318)  # TITAN FY26: 247 / 2,927 = 8.4%
+    lease_rate_check(ok, YEARS)
+    assert all(r["verified"] for r in ok.values())
+    low = _lease_rows(20, 461, 2712, 363, 2318)  # 0.7%
+    lease_rate_check(low, YEARS)
+    flagged = [k for k, r in low.items() if not r["verified"]]
+    assert len(flagged) == 5 and ("depreciation_right_of_use", FY) not in flagged
+    assert low[("lease_liabilities_current", FY)]["check_note"] == "needs review: implied lease interest rate 0.7% is outside 3% to 15%"
+    high = _lease_rows(778, 1830, 453, 1554, 1000)  # 778 / 2,418.5 = 32%
+    high[("interest_on_lease_liabilities", FY)]["check_note"] = NEEDS_REVIEW_NUMBERS
+    lease_rate_check(high, YEARS)
+    assert high[("interest_on_lease_liabilities", FY)]["check_note"].startswith(NEEDS_REVIEW_NUMBERS + "; needs review: implied")
+    partial = _lease_rows(20, 461, 2712, 363, 2318)
+    del partial[("lease_liabilities_current", YEARS[1])]
+    lease_rate_check(partial, YEARS)  # cannot be worked out: no flag
+    assert all(r["verified"] for r in partial.values())
+
+
+def _stored_extraction(tmp_path):
+    lake = Lake(tmp_path / "lake")
+    llm = FakeLLM(FeatureStore(), {"report_facts": _answer([fact(quote="Interest on lease liabilities 1,234.50 1,100")])})
+    ex = extract(llm, tmp_path / "none.pdf", "TEST", ISIN, FY, date(2026, 6, 1), pages=["Cover", "Blank", LEASE_NOTE])
+    ingest(ReportFactsRecord(ex), lake)
+    return lake, ex
+
+
+def test_confirm_appends_a_new_row_and_survives_reparse(tmp_path):
+    from smt.sources.owner_review import OwnerConfirmation, current_facts, find_row
+    lake, ex = _stored_extraction(tmp_path)
+    row = find_row(lake, ISIN, "interest_on_lease_liabilities", FY)
+    assert row["verified"] is False and row["check_note"] == NEEDS_REVIEW_NUMBERS
+    when = datetime(2026, 11, 15, 10, 0, tzinfo=timezone.utc)
+    ingest(OwnerConfirmation(row, "FY26 column checked", confirmed_at=when), lake)
+    new = find_row(lake, ISIN, "interest_on_lease_liabilities", FY)
+    assert new["verified"] is True and new["check_note"] == "confirmed by owner review: FY26 column checked"
+    assert new["value"] == row["value"] and new["source"] == "owner_review" and new["published_at"] == when
+    # the old row is still stored, unchanged
+    all_rows = lake.query(f"SELECT verified, check_note FROM {lake.read_sql('report_facts')} "
+                          "WHERE item = 'interest_on_lease_liabilities' AND fiscal_year_end = DATE '2026-03-31'")
+    assert sorted(all_rows, key=str) == sorted([(False, NEEDS_REVIEW_NUMBERS), (True, new["check_note"])], key=str)
+    # re-running the checks on the LLM extraction does not undo the confirmation
+    raw = next(p for p in (tmp_path / "lake").rglob("*.json.gz") if "annual_report_llm" in str(p))
+    reparse(ReportFactsRecord(ex), lake, raw)
+    assert find_row(lake, ISIN, "interest_on_lease_liabilities", FY)["verified"] is True
+    # a backtest before the review sees the unconfirmed row
+    before = [r for r in current_facts(lake, ISIN, as_of=datetime(2026, 9, 1, tzinfo=timezone.utc))
+              if r["item"] == "interest_on_lease_liabilities" and r["fiscal_year_end"] == FY]
+    assert before[0]["verified"] is False
+
+
+def test_confirm_needs_a_value_and_a_note(tmp_path):
+    from smt.sources.owner_review import OwnerConfirmation, find_row
+    lake, _ = _stored_extraction(tmp_path)
+    with pytest.raises(ValueError, match="nothing to confirm"):
+        OwnerConfirmation(find_row(lake, ISIN, "rnd_expenditure", FY), "looks fine")
+    with pytest.raises(ValueError, match="note"):
+        OwnerConfirmation(find_row(lake, ISIN, "interest_on_lease_liabilities", FY), "  ")
+    with pytest.raises(LookupError):
+        find_row(lake, ISIN, "interest_on_lease_liabilities", date(2020, 3, 31))
+
+
+def test_owner_entry_quote_is_checked_against_the_page(tmp_path):
+    from smt.sources.owner_review import OwnerEntry, find_row
+    page = "Expenditure on Research & Development\n (` in crore)\nc) Total 32.28 26.35\nd) Total R & D"
+    kw = dict(instrument_id=ISIN, item="rd_expense_standalone", fiscal_year_end=FY, value="32.28", unit="crore", page=141,
+              quote="c) Total 32.28 26.35", page_text=page, note="standalone only", filed_on=date(2026, 7, 3),
+              pdf_file="T.pdf", pdf_sha256="abc")
+    lake = Lake(tmp_path / "lake")
+    ingest(OwnerEntry(**kw), lake)
+    row = find_row(lake, ISIN, "rd_expense_standalone", FY)
+    assert row["verified"] is True and row["value"] == pytest.approx(32.28e7) and row["check_note"] == "standalone only"
+    assert row["extractor"] == "owner" and row["published_at"] == datetime(2026, 7, 3, 18, 30, tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="not on page 141"):
+        OwnerEntry(**{**kw, "quote": "c) Total 32.82 26.35"})
+    with pytest.raises(ValueError, match="not a number in the quote"):
+        OwnerEntry(**{**kw, "value": "23.28"})
+    with pytest.raises(ValueError, match="LLM extraction"):
+        OwnerEntry(**{**kw, "item": "rnd_expenditure"})
