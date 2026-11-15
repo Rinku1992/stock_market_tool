@@ -266,3 +266,48 @@ Newest at the bottom. One entry per choice, with the reason.
   SMT_CLAUDE_MODEL for that task only. No task uses an override yet; the model in use is unchanged.
 - **First real call, 14 Nov 2026:** task key_check, one-line prompt, max_tokens 20, model
   claude-sonnet-5-5 (SMT_CLAUDE_MODEL). Answer "ready"; 18 input + 4 output = 22 tokens recorded.
+
+## Valuation stage B, step 1: annual report facts (15 Nov 2026)
+
+- **New dataset report_facts (v1).** The owner's columns plus two: `unit` (as stated: crore, lakh,
+  million) and `check_note` (why a row is not verified). Key: instrument_id, fiscal_year_end, item,
+  published_at. Values in absolute INR. Not found or failed rows keep value null, never zero.
+- **pypdf reads the PDFs** (pure Python, BSD licence). The rupee sign comes out as "H" or "`"; harmless.
+- **Candidate pages are picked by code** from keywords. Lease, interest, right-of-use and ESOP items only
+  from pages whose running header says consolidated statements (standalone pages are never sent). R&D sits
+  in the Board's report, so it may come from any page that also says "consolidated". At most 3 pages and
+  12,000 characters per call; items that share pages share one call (one call per report here), and the
+  consolidated balance sheet is sent first for current / non-current lease liabilities.
+- **The LLM only copies:** item, value as printed, unit, PDF page and an exact quote, as JSON. Code checks:
+  quote on that page word for word (spaces and line breaks ignored), printed value is a number in the
+  quote, unit stated and on the page, page was sent, year was asked for. Code converts to rupees. Two
+  different checked values for one item and year: both rejected.
+- **Needs review (owner, 15 Nov 2026):** a quote with more than one number (year or standalone /
+  consolidated columns), or a lease liability quote naming both current and non-current, is stored with
+  verified = false and "needs review: ..." and the value kept, for the owner to confirm the column. Reason:
+  code cannot prove which column a number came from. On the first run this held every figure (all 20),
+  because annual report tables print two years side by side.
+- **Not found rows (owner, 15 Nov 2026):** an item with no figure gets a row with value null. If a sentence
+  in the report says the item does not exist (searched by code, e.g. "does not have any employee stock
+  option scheme"), that sentence and page are the quote. Otherwise the note lists the pages that mention
+  the item. Asked but not answered: "not found on the pages sent".
+- **TITAN R&D is NOT stored as "not tracked (per BRSR)",** although first asked that way. Checking the
+  page showed the BRSR line ("R&D - - Not being tracked as per BRSR requirement", PDF page 231) answers a
+  different question (share of R&D spent on sustainability technologies). TITAN does print R&D for the
+  company alone: Rs 32.28 crore FY26 in the Board's report (PDF page 141) and Rs 12.99 crore in the
+  integrated report KPIs (PDF page 65); these two differ and neither is consolidated. Stored as "not found:
+  no consolidated figure", with the pages that mention R&D. My earlier "not tracked" summary was wrong.
+- **`page` is the PDF page number from 1,** not the printed page number (TCS PDF page 167 is printed 196).
+- **published_at = end of the filing day, India time.** Filing dates given by the owner: TCS FY26
+  2026-05-15, TITAN FY26 2026-07-03. The NSE annual reports page could not be read by an automated request
+  (timed out); it was not worked around, so no later date was checked (not verified).
+- **The raw payload keeps the page texts sent and the LLM's answers,** so the checks re-run offline with
+  reparse and no new LLM call.
+- **Values arriving as text** ("1,820", "(77)") are read without commas and brackets. Found on the first
+  real run: TCS values came back as strings and were wrongly rejected; fixed, and the stored answer was
+  re-checked from the cache (0 tokens).
+- **Known limits:** the check cannot tell which column a number came from (hence needs review); pypdf can
+  break table text (TCS non-current lease line reads "Lease liabilities 9 453 7,838" and the LLM took 453,
+  which looks wrong); a thinking model's thinking counts inside max_tokens (4,000).
+- **First real run, 15 Nov 2026 (claude-sonnet-5-5):** 2 API calls, 7,703 input + 2,139 output = 9,842
+  tokens (dry-run ceiling 14,206), plus 1 cache hit.
