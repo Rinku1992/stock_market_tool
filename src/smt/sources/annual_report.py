@@ -190,12 +190,12 @@ def quote_numbers(quote: str) -> list[Decimal]:
     return out
 
 
-def check_fact(fact: dict, pages_sent: dict[int, str], years: list[date]) -> tuple[dict, str | None]:
+def check_fact(fact: dict, pages_sent: dict[int, str], years: list[date], known=ITEM_BY_NAME) -> tuple[dict, str | None]:
     """-> (clean fields, failure reason or None). Never raises on bad LLM output."""
     item = fact.get("item")
     out = {"item": item, "value": None, "unit": None, "page": None, "quote": fact.get("quote") or None,
            "fiscal_year_end": None}
-    if item not in ITEM_BY_NAME:
+    if item not in known:
         return out, f"unknown item {item!r}"
     try:
         fy = date.fromisoformat(str(fact.get("fiscal_year_end")))
@@ -283,6 +283,32 @@ def absence_note(a: dict) -> str:
             "(not consolidated statement pages)")
 
 
+LEASE_RATE_MIN, LEASE_RATE_MAX = 0.03, 0.15
+LEASE_ITEMS = ("interest_on_lease_liabilities", "lease_liabilities_current", "lease_liabilities_noncurrent")
+
+
+def lease_rate_check(rows: dict[tuple, dict], years: list[date]) -> None:
+    """Implied lease interest rate = interest on lease liabilities (latest year) / average total lease
+    liabilities (current + non-current, both years). Outside 3% to 15%: every lease row with a value is
+    flagged (verified = false). Uses values that passed the checks, verified or held for review."""
+    fy, prev = years
+    val = {k: r["value"] for k, r in rows.items() if r.get("value") is not None}
+    need = [("interest_on_lease_liabilities", fy)] + [(i, y) for i in LEASE_ITEMS[1:] for y in (fy, prev)]
+    if any(k not in val for k in need):
+        return
+    avg = (val[("lease_liabilities_current", fy)] + val[("lease_liabilities_noncurrent", fy)]
+           + val[("lease_liabilities_current", prev)] + val[("lease_liabilities_noncurrent", prev)]) / 2
+    rate = val[("interest_on_lease_liabilities", fy)] / avg if avg else float("inf")
+    if LEASE_RATE_MIN <= rate <= LEASE_RATE_MAX:
+        return
+    flag = (f"needs review: implied lease interest rate {rate:.1%} is outside "
+            f"{LEASE_RATE_MIN:.0%} to {LEASE_RATE_MAX:.0%}")
+    for (item, _), r in rows.items():
+        if item in LEASE_ITEMS and r.get("value") is not None:
+            r["verified"] = False
+            r["check_note"] = flag if not r["check_note"] else f"{r['check_note']}; {flag}"
+
+
 def parse_response(text: str) -> dict:
     """The LLM's JSON, also when wrapped in ``` fences. Raises ValueError if there is none."""
     start, end = text.find("{"), text.rfind("}")
@@ -358,6 +384,7 @@ def fact_rows(ex: Extraction) -> list[dict]:
             elif row["verified"] and old["verified"] and row["value"] != old["value"]:
                 for r in (old, row):
                     r["verified"], r["check_note"] = False, "two different values were given for this item and year"
+    lease_rate_check(rows, years)
     base = {"instrument_id": ex.instrument_id, "extractor": ex.extractor, "published_at": published,
             "source_ref": f"{ex.pdf_file} sha256:{ex.pdf_sha256[:12]}", "fiscal_year_end": years[0], "value": None,
             "unit": None, "verified": False}
