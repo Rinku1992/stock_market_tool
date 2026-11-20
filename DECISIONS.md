@@ -411,3 +411,35 @@ Newest at the bottom. One entry per choice, with the reason.
   cannot be fixed in the task). Reason: the standard is what a great analyst or fund manager would build,
   not a generic solution. Added to CLAUDE.md (read-first line and working rules). The checklist text is
   the owner's and is not edited by Claude.
+
+## Gold on loan as debt, and the R&D materiality line (20 Nov 2026)
+
+- **Gold on loan (jewellers) is treated as debt:** it funds inventory and its interest is in finance costs.
+  EV including leases and gold on loan = EV including leases + gold on loan on the EV date; invested capital
+  adds it at the closing and opening dates (both needed); EBIT is not changed. This figure leads, then
+  "including leases" (the view of analysts who treat it as working capital), then "before leases". The text
+  says so. New owner item gold_on_loan (report_facts add, quote checked on the PDF page); its
+  fiscal_year_end column holds the balance sheet date, which may be a half-year end.
+- **Exact date rule:** used for a balance sheet date only if a verified row exists for that same date. No
+  carry forward and no 400-day rule, because it moves with the gold price and the stock held. A verified row
+  for another date gives one fact line ("Gold on loan Rs X crore as of <date>; not in EV or ROIC: no figure
+  for <date>") and a reason. No lease figures: not added. No gold rows: output unchanged.
+- **TITAN checks (code text search of TITAN_FY26.pdf, no LLM):**
+  (a) consolidated balance sheet, PDF page 374: "(ii) Gold on loan 17.2 16,070 7,810" (FY26, FY25), matching
+  the public figure the owner gave (16,070 / 7,810).
+  (b) double count 1: borrowings on that page 93 (non-current) + 11,285 (current) = 11,378; the lake for
+  2026-03-31 (consolidated XBRL) has the same 93 + 11,285. Gold on loan is not inside borrowings in March
+  2026: pass. In the March 2026 XBRL, gold on loan appears to sit inside TradePayablesCurrent (18,934),
+  which is not in EV or invested capital (not verified).
+  (c) double count 2: finance costs note, PDF page 430: "Gold on loan {refer note 17.2} 320 174" listed under
+  interest expense, total finance costs 1,180 / 953. Its cost is in finance costs, which EBIT adds back: pass.
+  (d) no TITAN results PDFs are stored; no September gold figures can be entered yet.
+- **Open item, September 2026 (not verified):** the lake's TITAN borrowings_current jumps from 11,285 (March
+  2026) to 24,191 (September 2026) while trade payables fall from 18,934 to 3,932 and other current financial
+  liabilities rise from 2,530 to 13,536. Gold on loan may have moved inside borrowings or other liabilities
+  in the September XBRL. Check (b) must be repeated for 2026-09-30 before a September gold row is added;
+  stage A EV and invested capital for September 2026 may already include it.
+- **R&D materiality, 1% rule:** share = latest fiscal year R&D / 12-month revenue to the ROIC date. Under 1%:
+  one short line "R&D is X.X% of revenue: not material for this company (rough ROIC with it capitalised:
+  Y%)"; features still stored. 1% or more: the full rough sentence plus the share. R&D uses the lead invested
+  capital (with gold on loan when present). TCS: narrow 0.1% (not material), wide 1.0% (about 1.01%, kept).

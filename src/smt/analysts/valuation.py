@@ -423,18 +423,39 @@ def capital_returns(ctx: AnalystContext) -> AnalystReport:
         leases, why = _lease_figures(b, facts, dates)
         if leases:
             ic_l = sum(icx + x.value for icx, x in zip([ic_c, ic_o], leases)) / len(leases)
+        ic_lead = None
         if ic_l and ic_l > 0:
             roic_l = ebit * (1 - t) / ic_l
-            parts.append(f"ROIC including leases {_pc(roic_l)}: {label} {_cr(ebit)}, tax rate {t:.0%}, invested capital "
-                         f"including leases {_cr(ic_l)} ({how_ic}; {adj.lease_text(*leases)}).")
+            ic_lead = ic_l
+            lease_line = (f"ROIC including leases {_pc(roic_l)}: {label} {_cr(ebit)}, tax rate {t:.0%}, invested capital "
+                          f"including leases {_cr(ic_l)} ({how_ic}; {adj.lease_text(*leases)}).")
+            gold, fact_line = _gold(facts, dates, "ROIC", gaps)
+            if gold:
+                ic_g = sum(icx + x.value + g for icx, x, g in zip([ic_c, ic_o], leases, gold)) / len(leases)
+                if ic_g > 0:
+                    roic_g = ebit * (1 - t) / ic_g
+                    ic_lead = ic_g
+                    parts.append(f"ROIC including leases and gold on loan {_pc(roic_g)}: {label} {_cr(ebit)}, tax rate "
+                                 f"{t:.0%}, invested capital including leases and gold on loan {_cr(ic_g)} ({how_ic}; "
+                                 f"{adj.gold_text(adj.gold_series(facts), dates)}); {adj.GOLD_NOTE}.")
+                    feats.update({"val_gold_on_loan": gold[0], "val_roic_incl_leases_gold": roic_g})
+                    lease_line = "Including leases: " + lease_line
+                else:
+                    gaps.append(f"gold on loan: invested capital including leases and gold on loan is {_cr(ic_g)}, not positive")
+            parts.append(lease_line)
             parts.append(f"Before leases: {line} {formula_core}. {LEASE_FORMULA}.")
+            if fact_line:
+                parts.append(fact_line)
             feats.update({"val_lease_liabilities": leases[0].value, "val_roic_incl_leases": roic_l})
         else:
             if leases:
                 why = f"invested capital including leases is {_cr(ic_l)}, not positive"
             gaps.append(f"leases: {why}; ROIC is before leases")
+            if adj.has_gold_rows(facts):
+                gaps.append("gold on loan: lease figures are not available, so it is not added")
             parts.append(f"{line} {formula}.")
-        parts += _rd_lines(b, facts, end, ebit, t, ic_l if ic_l and ic_l > 0 else None, gaps, feats)
+        rev_end, _ = b.fin.ttm(end, "revenue")
+        parts += _rd_lines(b, facts, end, ebit, t, ic_lead, gaps, feats, rev_end)
     elif ic is not None and ic <= 0:
         parts.append(f"ROIC not meaningful: invested capital is {_cr(ic)} (cash exceeds equity plus debt). {formula}.")
     else:
@@ -442,11 +463,33 @@ def capital_returns(ctx: AnalystContext) -> AnalystReport:
     return _report(ctx, "capital_returns", " ".join(parts), b, gaps + need, feats)
 
 
+def _gold(facts: dict, dates: list[date], what: str, gaps: list) -> tuple[list[float] | None, str | None]:
+    """Gold on loan for every date (exact date rule), or None with a fact line and a reason.
+    No gold_on_loan rows at all: (None, None) and nothing is said."""
+    if not adj.has_gold_rows(facts):
+        return None, None
+    series = adj.gold_series(facts)
+    if not series:
+        gaps.append("gold on loan: no verified figure")
+        return None, None
+    gold, missing = adj.gold_on(series, dates)
+    if gold:
+        return gold, None
+    latest = max(series)
+    gaps.append(f"gold on loan: no verified figure for {missing} (exact date rule: no carry forward); {what} is not "
+                "adjusted for it")
+    return None, (f"Gold on loan Rs {series[latest] / 1e7:,.0f} crore as of {latest}; not in EV or ROIC: no figure for "
+                  f"{missing}.")
+
+
 WIDE_NOTE = "includes innovation spend, which is not R&D by the accounting definition"
 
 
-def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: float | None, gaps: list, feats: dict) -> list[str]:
-    """Rough ROIC with R&D capitalised: narrow (R&D) leads, wide (R&D and innovation) next to it."""
+def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: float | None, gaps: list, feats: dict,
+              revenue: float | None = None) -> list[str]:
+    """Rough ROIC with R&D capitalised: narrow (R&D) leads, wide (R&D and innovation) next to it.
+    ic_l is the lead invested capital (including leases, and gold on loan when present). Under 1% of the
+    12-month revenue to the ROIC date, R&D gets one short "not material" sentence."""
     has_rows = any(i in (adj.RD_NARROW, adj.RD_WIDE) for (i, _) in facts)
     if b.fin.basis != "consolidated":
         if has_rows:
@@ -456,8 +499,9 @@ def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: floa
         gaps.append("R&D: no verified consolidated R&D figures in the annual report facts; not capitalised")
         return []
     out = []
-    for item, key, name in ((adj.RD_NARROW, "val_roic_rd_rough", "narrow: R&D only"),
-                            (adj.RD_WIDE, "val_roic_rd_wide_rough", f"wide: R&D and innovation; {WIDE_NOTE}")):
+    for item, key, name, what in ((adj.RD_NARROW, "val_roic_rd_rough", "narrow: R&D only", "R&D"),
+                                  (adj.RD_WIDE, "val_roic_rd_wide_rough", f"wide: R&D and innovation; {WIDE_NOTE}",
+                                   "R&D and innovation spend")):
         rd, why = adj.rd_inputs(facts, item, end)
         if rd is None:
             gaps.append(f"R&D ({name.split(':')[0]}): {why}; not capitalised")
@@ -470,10 +514,21 @@ def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: floa
             gaps.append(f"R&D ({name.split(':')[0]}): adjusted invested capital is not positive; not computed")
             continue
         roic, nopat, ic = got
-        out.append(f"Rough ROIC with R&D capitalised {_pc(roic)} ({name}): research asset {_cr(rd.asset)} "
-                   f"(R0 + 2/3 x R1 + 1/3 x R2, 3-year life, R0 = {rd.fy0}), amortisation {_cr(rd.amortisation)}, "
-                   f"EBIT change {_crs(rd.ebit_change)}, adjusted NOPAT {_cr(nopat)}, adjusted invested capital {_cr(ic)}; "
-                   f"rough: {adj.rd_caveat(rd)}.")
+        share = rd.r[0] / revenue if revenue and revenue > 0 else None
+        if share is not None and share < adj.RD_MATERIAL:
+            out.append(f"{what} is {share:.1%} of revenue: not material for this company (rough ROIC with it "
+                       f"capitalised: {_pc(roic)}).")
+        else:
+            s = (f"Rough ROIC with R&D capitalised {_pc(roic)} ({name}): research asset {_cr(rd.asset)} "
+                 f"(R0 + 2/3 x R1 + 1/3 x R2, 3-year life, R0 = {rd.fy0}), amortisation {_cr(rd.amortisation)}, "
+                 f"EBIT change {_crs(rd.ebit_change)}, adjusted NOPAT {_cr(nopat)}, adjusted invested capital {_cr(ic)}; "
+                 f"rough: {adj.rd_caveat(rd)}.")
+            if share is None:
+                gaps.append(f"R&D ({name.split(':')[0]}): 12-month revenue to {end} not available, so its share of revenue "
+                            "is not shown")
+            else:
+                s += f" {what} is {share:.1%} of revenue (latest fiscal year against 12 months to {end})."
+            out.append(s)
         feats[key] = roic
         if item == adj.RD_NARROW:
             feats["val_rd_asset_rough"] = rd.asset
@@ -612,10 +667,28 @@ def relative_valuation(ctx: AnalystContext) -> AnalystReport:
                     lead += f", EV/Sales including leases {_x(ev_l / rev)}"
                     feats["val_ev_sales_incl_leases"] = ev_l / rev
                 before = s.replace("; lease liabilities are not in quarterly filings and are left out", "")
+                gold, fact_line = _gold(facts, [end], "EV", gaps)
+                if gold:
+                    ev_g = ev_l + gold[0]
+                    g = (f"Enterprise value including leases and gold on loan {_cr(ev_g)} (enterprise value including "
+                         f"leases + {adj.gold_text(adj.gold_series(facts), [end])})")
+                    if ebitda is not None and ebitda > 0:
+                        g += f", EV/EBITDA including leases and gold on loan {_x(ev_g / ebitda)} (same EBITDA)"
+                        feats["val_ev_ebitda_incl_leases_gold"] = ev_g / ebitda
+                    if rev:
+                        g += f", EV/Sales including leases and gold on loan {_x(ev_g / rev)}"
+                        feats["val_ev_sales_incl_leases_gold"] = ev_g / rev
+                    parts.append(f"{g}; {adj.GOLD_NOTE}.")
+                    lead = "Including leases: " + lead
+                    feats.update({"val_ev_incl_leases_gold": ev_g, "val_gold_on_loan": gold[0]})
                 parts.append(f"{lead}. Before leases: {before}. {LEASE_FORMULA}.")
+                if fact_line:
+                    parts.append(fact_line)
                 feats.update({"val_ev_incl_leases": ev_l, "val_lease_liabilities": leases[0].value})
             else:
                 gaps.append(f"leases: {why}; EV is before leases")
+                if adj.has_gold_rows(facts):
+                    gaps.append("gold on loan: lease figures are not available, so it is not added")
                 parts.append(s + ".")
     cfo, how_c = b.fin.cf_ttm("cfo")
     capex, _ = b.fin.cf_ttm("capex")

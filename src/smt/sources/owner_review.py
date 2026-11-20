@@ -22,7 +22,7 @@ from decimal import Decimal, InvalidOperation
 
 from smt.sources.annual_report import UNITS, check_fact, published_at_for
 
-OWNER_ITEMS = {"rd_expense_standalone", "rd_and_innovation_total"}
+OWNER_ITEMS = {"rd_expense_standalone", "rd_and_innovation_total", "gold_on_loan"}
 CONFIRM_PREFIX = "confirmed by owner review: "
 CORRECT_PREFIX = "corrected by owner review: "
 

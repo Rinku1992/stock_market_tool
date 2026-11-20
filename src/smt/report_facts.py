@@ -87,11 +87,14 @@ def correct(argv: list[str]) -> None:
 def add(argv: list[str]) -> None:
     p = argparse.ArgumentParser(prog="smt.report_facts add")
     p.add_argument("symbol"); p.add_argument("pdf")
-    p.add_argument("--item", required=True); p.add_argument("--fy-end", type=date.fromisoformat, required=True)
+    p.add_argument("--item", required=True)
+    p.add_argument("--fy-end", type=date.fromisoformat, required=True,
+                   help="the date the figure is for: fiscal year end, or the balance sheet date for a balance sheet item "
+                        "such as gold_on_loan (may be a half-year end, e.g. 2026-09-30)")
     p.add_argument("--value", required=True, help="as printed, e.g. 32.28"); p.add_argument("--unit", required=True)
-    p.add_argument("--page", type=int, required=True, help="PDF page number, from 1")
+    p.add_argument("--page", type=int, required=True, help="PDF page number, from 1 (annual report or results PDF)")
     p.add_argument("--quote", required=True, help="exact text from that page")
-    p.add_argument("--filed-on", type=date.fromisoformat, required=True)
+    p.add_argument("--filed-on", type=date.fromisoformat, required=True, help="date the PDF was filed (becomes published_at)")
     p.add_argument("--note", required=True); p.add_argument("--isin")
     args = p.parse_args(argv)
     lake = _lake()

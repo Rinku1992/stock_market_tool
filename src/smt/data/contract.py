@@ -205,6 +205,7 @@ REPORT_FACT_ITEMS = frozenset({
     "depreciation_right_of_use", "share_based_payment_expense",
     "lease_liabilities_total",  # year-end total from the lease note; used by the lease sum check
     "rd_expense_standalone", "rd_and_innovation_total",  # entered by the owner (report_facts add), quote checked by code
+    "gold_on_loan",  # owner entry; fiscal_year_end holds the balance sheet date (may be a half-year end)
 })
 
 # Clean-up items read from annual reports by the LLM, each with the exact quote and page it came from.
