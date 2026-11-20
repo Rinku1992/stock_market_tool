@@ -23,7 +23,8 @@ LEASE_NOTE = ("Notes to consolidated financial statements\nfor the year ended 31
               "Particulars Year ended 31 March 2026 Year ended 31 March 2025\n"
               "Interest on lease liabilities 1,234.50 1,100\n"
               "Depreciation on right-of-use assets 2,345 2,010\n"
-              "Lease liabilities - current 3,456 3,000\nLease liabilities - non-current 12,345 11,000")
+              "Lease liabilities - current 3,456 3,000\nLease liabilities - non-current 12,345 11,000\n"
+              "Total lease liabilities 15,801 14,000")
 ESOP_NOTE = "Notes to consolidated financial statements\nRs in lakh\nShare based payments (expense) (77) (65)"
 BOARD = "Board's report\nExpenditure on R&D Standalone Consolidated FY 2026 FY 2025 FY 2026 FY 2025\nTotal R&D expenditure 418 415 421 420\n(H crore)"
 PAGES = ["Cover page", STANDALONE, LEASE_NOTE, ESOP_NOTE, BOARD]  # PDF pages 1..5
@@ -97,7 +98,7 @@ def test_candidate_pages_and_calls():
     assert all(2 not in pages for pages in asked.values())  # standalone page never sent
     assert all(len(p) <= 3 for p in asked.values())
     assert plan_calls(["Cover", STANDALONE])[1] == ["lease_liabilities_current", "lease_liabilities_noncurrent",
-                                                     "interest_on_lease_liabilities", "depreciation_right_of_use",
+                                                     "lease_liabilities_total", "interest_on_lease_liabilities", "depreciation_right_of_use",
                                                      "share_based_payment_expense", "rnd_expenditure"]
 
 
@@ -301,3 +302,60 @@ def test_owner_entry_quote_is_checked_against_the_page(tmp_path):
         OwnerEntry(**{**kw, "value": "23.28"})
     with pytest.raises(ValueError, match="LLM extraction"):
         OwnerEntry(**{**kw, "item": "rnd_expenditure"})
+
+
+def test_correct_appends_owner_value_and_keeps_the_quote(tmp_path):
+    from smt.sources.owner_review import OwnerCorrection, find_row
+    lake, _ = _stored_extraction(tmp_path)
+    row = find_row(lake, ISIN, "interest_on_lease_liabilities", FY)
+    when = datetime(2026, 11, 20, 9, 0, tzinfo=timezone.utc)
+    ingest(OwnerCorrection(row, "1,243.50", "PDF text split the number", confirmed_at=when), lake)
+    new = find_row(lake, ISIN, "interest_on_lease_liabilities", FY)
+    assert new["value"] == pytest.approx(1243.5e7) and new["verified"] is True and new["source"] == "owner_correction"
+    assert new["check_note"] == "corrected by owner review: PDF text split the number"
+    assert new["quote"] == row["quote"] and new["page"] == row["page"] and new["unit"] == "crore"
+    # the wrong row is still stored, unchanged, and is no longer the current one
+    stored = lake.query(f"SELECT value, verified FROM {lake.read_sql('report_facts')} "
+                        "WHERE item = 'interest_on_lease_liabilities' AND fiscal_year_end = DATE '2026-03-31' ORDER BY published_at")
+    assert stored == [(pytest.approx(1234.5e7), False), (pytest.approx(1243.5e7), True)]
+    with pytest.raises(ValueError, match="note"):
+        OwnerCorrection(row, 1, " ")
+    with pytest.raises(ValueError, match="not a number"):
+        OwnerCorrection(row, "nine", "x")
+    with pytest.raises(ValueError, match="no usable unit"):
+        OwnerCorrection(find_row(lake, ISIN, "rnd_expenditure", FY), 5, "x")
+
+
+# TCS FY26, as the PDF text reads: the balance sheet line splits 9,453 as "9 453"; the lease note gives the total.
+TCS_BS = ("Consolidated Balance Sheet\n(H crore)\nNon-current liabilities\n  Lease liabilities  9 453 7,838\n"
+          "Current liabilities\n  Lease liabilities 1,830 1,554")
+TCS_NOTE = ("Notes forming part of consolidated financial statements\n(H crore)\nBalance at the end of the year  11,283  9,392\n"
+            " Changes in lease liabilities are as follows:")
+
+
+def test_lease_sum_check_flags_the_tcs_split_number():
+    from smt.sources.annual_report import Extraction, lease_sum_check
+    facts = [fact(item="lease_liabilities_noncurrent", value=453, page=1, quote="Lease liabilities  9 453 7,838"),
+             fact(item="lease_liabilities_current", value=1830, page=1, quote="Lease liabilities 1,830"),
+             fact(item="lease_liabilities_total", value=11283, page=2, quote="Balance at the end of the year  11,283"),
+             fact(item="lease_liabilities_noncurrent", fiscal_year_end="2025-03-31", value=7838, page=1, quote="453 7,838"),
+             fact(item="lease_liabilities_current", fiscal_year_end="2025-03-31", value=1554, page=1, quote="1,830 1,554"),
+             fact(item="lease_liabilities_total", fiscal_year_end="2025-03-31", value=9392, page=2, quote="11,283  9,392")]
+    ex = Extraction("TCS", ISIN, "x.pdf", "abc", FY, date(2026, 5, 15), "fake", calls=[
+        {"items": ["lease_liabilities_current", "lease_liabilities_noncurrent", "lease_liabilities_total"],
+         "pages": {"1": TCS_BS, "2": TCS_NOTE}, "response": _answer(facts)}])
+    rows = {(r["item"], r["fiscal_year_end"]): r for r in fact_rows(ex)}
+    for item in ("lease_liabilities_current", "lease_liabilities_noncurrent"):
+        assert rows[(item, FY)]["verified"] is False
+        assert "needs review: lease sum mismatch (current 1,830.00 + non-current 453.00 vs note total 11,283.00 crore)" \
+            in rows[(item, FY)]["check_note"]
+        assert "lease sum" not in rows[(item, YEARS[1])]["check_note"]  # FY25: 1,554 + 7,838 = 9,392
+    # with the right figure (9,453) the sum matches; within 1 crore is fine; no note total, no check
+    mk = lambda v: {"value": v * 1e7, "verified": True, "check_note": None}
+    good = {("lease_liabilities_current", FY): mk(1830), ("lease_liabilities_noncurrent", FY): mk(9453),
+            ("lease_liabilities_total", FY): mk(11283.6)}
+    lease_sum_check(good, YEARS)
+    assert all(r["verified"] for r in good.values())
+    no_total = {("lease_liabilities_current", FY): mk(1830), ("lease_liabilities_noncurrent", FY): mk(453)}
+    lease_sum_check(no_total, YEARS)
+    assert all(r["verified"] for r in no_total.values())

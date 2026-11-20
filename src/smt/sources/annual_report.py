@@ -64,6 +64,9 @@ ITEMS = (
          prefer=_BALANCE_SHEET),
     Item("lease_liabilities_noncurrent", "Lease liabilities, non-current (balance sheet, non-current liabilities)",
          (r"lease liabilit",), prefer=_BALANCE_SHEET),
+    Item("lease_liabilities_total", "Total lease liabilities at the year end, from the lease note (for example 'Balance at "
+         "the end of the year' in the movement of lease liabilities, or 'Total lease liabilities')",
+         (r"lease liabilit", r"balance at the end|closing balance|total lease liabilit")),
     Item("interest_on_lease_liabilities", "Interest expense on lease liabilities for the year", (r"interest (expense )?on lease",)),
     Item("depreciation_right_of_use", "Depreciation on right-of-use assets for the year", (r"right[- ]of[- ]use", r"depreciation")),
     Item("share_based_payment_expense", "Share-based payment (employee stock option) expense charged to profit for the year",
@@ -309,6 +312,28 @@ def lease_rate_check(rows: dict[tuple, dict], years: list[date]) -> None:
             r["check_note"] = flag if not r["check_note"] else f"{r['check_note']}; {flag}"
 
 
+LEASE_SUM_TOLERANCE = 1e7  # 1 crore, in rupees
+LEASE_SUM_FLAG = "needs review: lease sum mismatch"
+
+
+def lease_sum_check(rows: dict[tuple, dict], years: list[date]) -> None:
+    """Current + non-current lease liabilities must equal the lease note's year-end total (within 1 crore),
+    for each year where the note gives a total. Otherwise both rows are flagged (verified = false)."""
+    for y in years:
+        tot, cur, non = (rows.get((i, y)) for i in ("lease_liabilities_total", "lease_liabilities_current",
+                                                    "lease_liabilities_noncurrent"))
+        if not (tot and cur and non) or None in (tot["value"], cur["value"], non["value"]):
+            continue
+        gap = cur["value"] + non["value"] - tot["value"]
+        if abs(gap) <= LEASE_SUM_TOLERANCE:
+            continue
+        flag = (f"{LEASE_SUM_FLAG} (current {cur['value'] / 1e7:,.2f} + non-current {non['value'] / 1e7:,.2f} "
+                f"vs note total {tot['value'] / 1e7:,.2f} crore)")
+        for r in (cur, non):
+            r["verified"] = False
+            r["check_note"] = flag if not r["check_note"] else f"{r['check_note']}; {flag}"
+
+
 def parse_response(text: str) -> dict:
     """The LLM's JSON, also when wrapped in ``` fences. Raises ValueError if there is none."""
     start, end = text.find("{"), text.rfind("}")
@@ -385,6 +410,7 @@ def fact_rows(ex: Extraction) -> list[dict]:
                 for r in (old, row):
                     r["verified"], r["check_note"] = False, "two different values were given for this item and year"
     lease_rate_check(rows, years)
+    lease_sum_check(rows, years)
     base = {"instrument_id": ex.instrument_id, "extractor": ex.extractor, "published_at": published,
             "source_ref": f"{ex.pdf_file} sha256:{ex.pdf_sha256[:12]}", "fiscal_year_end": years[0], "value": None,
             "unit": None, "verified": False}

@@ -9,6 +9,7 @@ anything and is never guessed. A dry run makes no LLM call and stores nothing.
 Owner review (appends a new row, never edits one):
 
     python -m smt.report_facts confirm TITAN:lease_liabilities_current:2026-03-31 --note "why"
+    python -m smt.report_facts correct TCS:lease_liabilities_noncurrent:2026-03-31 --value 9453 --note "why"
     python -m smt.report_facts add TITAN data/annual_reports/TITAN_FY26.pdf --item rd_expense_standalone \
         --fy-end 2026-03-31 --value 32.28 --unit crore --page 141 --quote "c) Total 32.28 26.35" \
         --filed-on 2026-07-03 --note "why"
@@ -26,7 +27,7 @@ from smt.data.lake import Lake
 from smt.data.members import symbol_to_isin
 from smt.llm import ClaudeClient
 from smt.sources.annual_report import NOT_FOUND, ReportFactsRecord, extract, fact_rows, pdf_pages
-from smt.sources.owner_review import OwnerConfirmation, OwnerEntry, find_row
+from smt.sources.owner_review import OwnerConfirmation, OwnerCorrection, OwnerEntry, find_row
 from smt.store import FeatureStore
 
 
@@ -61,6 +62,28 @@ def confirm(argv: list[str]) -> None:
           f"New row appended (verified True; was: {row['check_note'] or '-'}).")
 
 
+def correct(argv: list[str]) -> None:
+    p = argparse.ArgumentParser(prog="smt.report_facts correct")
+    p.add_argument("row", help="SYMBOL:item:fiscal-year-end")
+    p.add_argument("--value", required=True, help="the right number in the row's unit, e.g. 9453 for Rs 9,453 crore")
+    p.add_argument("--note", required=True, help="why the value is corrected")
+    p.add_argument("--isin")
+    args = p.parse_args(argv)
+    try:
+        symbol, item, fy = args.row.split(":")
+        fy = date.fromisoformat(fy)
+    except ValueError:
+        p.error("row must be SYMBOL:item:YYYY-MM-DD")
+    lake = _lake()
+    row = find_row(lake, _isin(lake, symbol, args.isin, p), item, fy)
+    adapter = OwnerCorrection(row, args.value, args.note)
+    ingest(adapter, lake)
+    new = adapter.parse(adapter.fetch())[0]
+    was = f"Rs {row['value'] / 1e7:,.2f} crore" if row["value"] is not None else "-"
+    print(f"Corrected {symbol.upper()} {item} {fy}: {was} -> Rs {new['value'] / 1e7:,.2f} crore ({new['unit']}). "
+          f"New row appended (verified True); quote kept: {new['quote']!r}")
+
+
 def add(argv: list[str]) -> None:
     p = argparse.ArgumentParser(prog="smt.report_facts add")
     p.add_argument("symbol"); p.add_argument("pdf")
@@ -92,6 +115,8 @@ def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "confirm":
         return confirm(argv[1:])
+    if argv and argv[0] == "correct":
+        return correct(argv[1:])
     if argv and argv[0] == "add":
         return add(argv[1:])
     p = argparse.ArgumentParser(prog="smt.report_facts")

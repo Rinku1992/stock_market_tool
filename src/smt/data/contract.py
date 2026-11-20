@@ -203,7 +203,8 @@ FILING_SEGMENTS = Dataset(
 REPORT_FACT_ITEMS = frozenset({
     "rnd_expenditure", "lease_liabilities_current", "lease_liabilities_noncurrent", "interest_on_lease_liabilities",
     "depreciation_right_of_use", "share_based_payment_expense",
-    "rd_expense_standalone",  # entered by the owner (python -m smt.report_facts add), quote checked by code
+    "lease_liabilities_total",  # year-end total from the lease note; used by the lease sum check
+    "rd_expense_standalone", "rd_and_innovation_total",  # entered by the owner (report_facts add), quote checked by code
 })
 
 # Clean-up items read from annual reports by the LLM, each with the exact quote and page it came from.
