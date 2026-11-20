@@ -30,6 +30,10 @@ LEASE_CURRENT, LEASE_NONCURRENT = "lease_liabilities_current", "lease_liabilitie
 LEASE_INTEREST = "interest_on_lease_liabilities"
 RD_NARROW, RD_WIDE = "rnd_expenditure", "rd_and_innovation_total"
 RD_LIFE = 3
+GOLD = "gold_on_loan"
+RD_MATERIAL = 0.01  # R&D below 1% of revenue: not material
+GOLD_NOTE = ("gold on loan is treated as debt here: it funds inventory and its interest is in finance costs. Some "
+             "analysts treat it as working capital; that view is the 'including leases' figure")
 
 
 def facts_asof(lake, instrument_id: str, as_of: date) -> dict[tuple[str, date], dict]:
@@ -98,6 +102,31 @@ def lease_interest_check(facts: dict, fy: date, finance_costs_fy: float | None) 
 def lease_text(*leases: Lease) -> str:
     parts = [f"Rs {x.value / 1e7:,.0f} crore as of {x.fiscal_year_end}" for x in leases]
     return "lease liabilities " + " and ".join(parts) + ", from the annual report"
+
+
+# ---------------------------------------------------------------- gold on loan
+
+def has_gold_rows(facts: dict) -> bool:
+    return any(item == GOLD for (item, _) in facts)
+
+
+def gold_series(facts: dict) -> dict[date, float]:
+    """Balance sheet date -> verified gold on loan."""
+    return {d: row["value"] for (i, d), row in facts.items() if i == GOLD and usable(row)}
+
+
+def gold_on(series: dict[date, float], dates: list[date]) -> tuple[list[float] | None, date | None]:
+    """EXACT DATE RULE: a figure for each date, or (None, the first date with no figure). No carry forward:
+    gold on loan moves with the gold price and the stock held."""
+    for d in dates:
+        if d not in series:
+            return None, d
+    return [series[d] for d in dates], None
+
+
+def gold_text(series: dict[date, float], dates: list[date]) -> str:
+    return "gold on loan " + " and ".join(f"Rs {series[d] / 1e7:,.0f} crore as of {d}" for d in dates) + \
+        ", from the balance sheet"
 
 
 # ---------------------------------------------------------------- R&D

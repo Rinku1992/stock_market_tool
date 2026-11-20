@@ -216,3 +216,124 @@ def test_no_finance_costs_for_the_lease_year_means_no_adjustment(tmp_path):
     ctx = _build(tmp_path / "x")  # no June 2024 quarter and no full-year figure: FY25 finance costs unknown
     ingest(Facts(LEASES), ctx.lake)
     _not_adjusted(ctx, "finance costs for the fiscal year to 2025-03-31 are not loaded, so the lease check cannot be made")
+
+
+# ---------------------------------------------------------------- gold on loan (exact date rule)
+SEP25, SEP24, MAR25 = date(2025, 9, 30), date(2024, 9, 30), date(2025, 3, 31)
+GOLD = [f("gold_on_loan", SEP25, 500), f("gold_on_loan", SEP24, 400)]
+GOLD_NOTE = ("gold on loan is treated as debt here: it funds inventory and its interest is in finance costs. Some analysts "
+             "treat it as working capital; that view is the 'including leases' figure")
+
+
+def test_ev_and_roic_including_leases_and_gold_on_loan(build):
+    ctx = build(LEASES + GOLD)
+    cr = capital_returns(ctx).finding
+    # invested capital = ((3,200 + 400 + 500) + (2,800 + 300 + 400)) / 2 = 3,800; ROIC = 630 / 3,800 = 16.6%
+    assert ("ROIC including leases and gold on loan 16.6%: EBIT Rs 840 crore, tax rate 25%, invested capital including "
+            "leases and gold on loan Rs 3,800 crore (average of 2024-09-30 and 2025-09-30; gold on loan Rs 500 crore as of "
+            f"2025-09-30 and Rs 400 crore as of 2024-09-30, from the balance sheet); {GOLD_NOTE}.") in cr
+    assert cr.index("leases and gold on loan 16.6%") < cr.index("Including leases: ROIC including leases 18.8%") < cr.index(
+        "Before leases: ROIC 21.0%")
+    assert feat(ctx, "val_roic_incl_leases_gold") == pytest.approx(630 / 3800)
+    assert feat(ctx, "val_gold_on_loan") == pytest.approx(500 * CR)
+    rv = relative_valuation(ctx).finding
+    # EV = 3,600 + 500 = 4,100; EV/EBITDA 4,100 / 960 = 4.3x; EV/Sales 4,100 / 4,000 = 1.0x
+    assert ("Enterprise value including leases and gold on loan Rs 4,100 crore (enterprise value including leases + gold on "
+            "loan Rs 500 crore as of 2025-09-30, from the balance sheet), EV/EBITDA including leases and gold on loan 4.3x "
+            f"(same EBITDA), EV/Sales including leases and gold on loan 1.0x; {GOLD_NOTE}.") in rv
+    assert rv.index("leases and gold on loan Rs 4,100") < rv.index("Including leases: Enterprise value including leases Rs 3,600") \
+        < rv.index("Before leases: Enterprise value Rs 3,200")
+    assert feat(ctx, "val_ev_incl_leases_gold") == pytest.approx(4100 * CR)
+    assert feat(ctx, "val_ev_ebitda_incl_leases_gold") == pytest.approx(4100 / 960)
+    assert feat(ctx, "val_ev_sales_incl_leases_gold") == pytest.approx(4100 / 4000)
+    # existing features keep their values
+    assert feat(ctx, "val_roic_incl_leases") == pytest.approx(630 / 3350) and feat(ctx, "val_ev_incl_leases") == pytest.approx(3600 * CR)
+    assert feat(ctx, "val_roic") == pytest.approx(0.21) and feat(ctx, "val_ev") == pytest.approx(3200 * CR)
+
+
+def _gold_not_used(ctx):
+    for name in ("val_roic_incl_leases_gold", "val_ev_incl_leases_gold", "val_gold_on_loan"):
+        assert feat(ctx, name) is None
+    assert feat(ctx, "val_roic_incl_leases") == pytest.approx(630 / 3350)
+
+
+def test_march_gold_row_with_a_september_balance_sheet_is_a_fact_line_only(build):
+    ctx = build(LEASES + [f("gold_on_loan", MAR25, 450)])
+    cr, rv = capital_returns(ctx), relative_valuation(ctx)
+    line = "Gold on loan Rs 450 crore as of 2025-03-31; not in EV or ROIC: no figure for 2025-09-30."
+    assert line in cr.finding and line in rv.finding
+    assert "ROIC including leases 18.8%" in cr.finding and "Including leases:" not in cr.finding
+    assert any("gold on loan: no verified figure for 2025-09-30 (exact date rule: no carry forward)" in g for g in cr.could_not_check)
+    assert any("no verified figure for 2025-09-30" in g for g in rv.could_not_check)
+    _gold_not_used(ctx)
+
+
+def test_opening_gold_row_missing_means_no_roic_but_ev_is_computed(build):
+    ctx = build(LEASES + GOLD[:1])
+    cr = capital_returns(ctx)
+    assert "Gold on loan Rs 500 crore as of 2025-09-30; not in EV or ROIC: no figure for 2024-09-30." in cr.finding
+    assert feat(ctx, "val_roic_incl_leases_gold") is None
+    relative_valuation(ctx)
+    assert feat(ctx, "val_ev_incl_leases_gold") == pytest.approx(4100 * CR)
+
+
+def test_unverified_or_later_gold_row_is_not_used(build):
+    ctx = build(LEASES + [{**r, "verified": False} for r in GOLD], sub="u")
+    cr = capital_returns(ctx)
+    assert "gold on loan: no verified figure" in cr.could_not_check and "gold on loan Rs" not in cr.finding.lower()
+    _gold_not_used(ctx)
+    later = datetime(2025, 11, 28, 10, 1, tzinfo=UTC)  # after the as-of close: as if it did not exist yet
+    ctx = build(LEASES + [{**r, "published_at": later} for r in GOLD], sub="l")
+    cr = capital_returns(ctx)
+    assert "gold" not in cr.finding.lower() and not any("gold" in g for g in cr.could_not_check)
+    _gold_not_used(ctx)
+
+
+def test_gold_without_lease_figures_is_not_added(build):
+    ctx = build(GOLD)
+    cr, rv = capital_returns(ctx), relative_valuation(ctx)
+    assert "gold on loan: lease figures are not available, so it is not added" in cr.could_not_check
+    assert "gold on loan: lease figures are not available, so it is not added" in rv.could_not_check
+    assert "gold on loan" not in cr.finding.lower() and feat(ctx, "val_ev_incl_leases_gold") is None
+
+
+def test_stock_without_gold_rows_is_unchanged(build):
+    ctx = build(LEASES)
+    cr, rv = capital_returns(ctx), relative_valuation(ctx)
+    for r in (cr, rv):
+        assert "gold" not in r.finding.lower() and not any("gold" in g for g in r.could_not_check)
+        assert "Including leases:" not in r.finding
+
+
+def test_lender_unchanged_with_gold_rows(build):
+    lend = {k: {"facts": [("InterestEarned", 900), ("ImpairmentOnFinancialInstruments", 25)], "bs": [("Loans", 4000)]}
+            for k in list(tv.FILINGS)}
+    plain, with_gold = build(sub="p", extra=lend), build(LEASES + GOLD, sub="g", extra=lend)
+    for fn in (capital_returns, relative_valuation):
+        a, b = fn(plain), fn(with_gold)
+        assert a.finding == b.finding and a.could_not_check == b.could_not_check
+
+
+# ---------------------------------------------------------------- R&D materiality (1% of revenue)
+
+def test_rd_under_one_percent_of_revenue_is_one_short_line(build):
+    small = [f("rnd_expenditure", FY25, 20), f("rnd_expenditure", FY24, 18),
+             f("rd_and_innovation_total", FY25, 2900), f("rd_and_innovation_total", FY24, 2630)]
+    ctx = build(LEASES + small)
+    cr = capital_returns(ctx).finding
+    # 20 / 4,000 revenue = 0.5%; asset 38, EBIT change +2: ROIC (630 + 2) / (3,350 + 38) = 18.7%
+    assert "R&D is 0.5% of revenue: not material for this company (rough ROIC with it capitalised: 18.7%)." in cr
+    assert "(narrow: R&D only)" not in cr
+    assert feat(ctx, "val_roic_rd_rough") == pytest.approx(632 / 3388) and feat(ctx, "val_rd_asset_rough") == pytest.approx(38 * CR)
+    # wide 2,900 / 4,000 = 72.5%: the full rough sentence stays, with the share
+    assert "Rough ROIC with R&D capitalised 10.1% (wide" in cr
+    assert "R&D and innovation spend is 72.5% of revenue (latest fiscal year against 12 months to 2025-09-30)." in cr
+
+
+def test_rd_over_one_percent_keeps_the_sentence_and_uses_the_lead_capital(build):
+    ctx = build(LEASES + GOLD + RD)
+    cr = capital_returns(ctx).finding
+    # 421 / 4,000 = 10.5%; lead invested capital 3,800 (with gold): ROIC (630 + 1) / (3,800 + 841) = 13.6%
+    assert "Rough ROIC with R&D capitalised 13.6% (narrow: R&D only)" in cr
+    assert "R&D is 10.5% of revenue (latest fiscal year against 12 months to 2025-09-30)." in cr
+    assert feat(ctx, "val_roic_rd_rough") == pytest.approx(631 / 4641)
