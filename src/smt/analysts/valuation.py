@@ -11,7 +11,10 @@ Framework and stages: docs/VALUATION.md. Rules for the data (see DECISIONS.md):
   full year (March), so TTM cash flow to Sep = half year to Sep + year to March - half year to last Sep.
   When cash flow is set against profit, both cover the same 12 months.
 - Balance sheets exist only for Sep and March. "Average" = closing and the one a year earlier.
-- Lease liabilities are not in quarterly filings: EV and invested capital leave them out and say so.
+- Lease liabilities are not in quarterly filings. Stage B adds them from verified annual report facts
+  (adjustments.py): EV and invested capital "including leases" lead, the stage A figure follows as
+  "before leases". Without verified lease facts, figures are before leases and say so. R&D is
+  capitalised (rough) in capital_returns when verified consolidated R&D exists.
 - Missing is never zero. A filed zero counts as real only where zero is plausible (dividends,
   minority interest, borrowings, capex); never for shares, face value, equity, revenue, total assets.
 - Share count = paid-up capital / face value, cleaned against the balance sheet's share capital.
@@ -21,6 +24,7 @@ from calendar import monthrange
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from smt.analysts import adjustments as adj
 from smt.analysts.base import AnalystContext
 from smt.data.financials import load_financials
 from smt.data.prices import load_bars
@@ -211,6 +215,43 @@ def _report(ctx, analyst_id, finding, b: Base | None, gaps, features=None) -> An
                          finding=finding, views=neutral_views(), evidence=ev, could_not_check=gaps)
 
 
+def _crs(v: float) -> str:
+    """Signed crore amount, e.g. +Rs 1 crore."""
+    return ("+" if v >= 0 else "-") + _cr(abs(v))
+
+
+def fy_finance_costs(fin: Fin, fy: date) -> tuple[float | None, str]:
+    """Finance costs for the fiscal year ending fy: the 4 quarters added up, or, when a quarter is not
+    loaded, the full-year figure filed with the March results (the same 12 months)."""
+    v, missing = fin.ttm(fy, "finance_costs")
+    if v is not None:
+        return v, "4 quarters added up"
+    full = fin.get(fy, "A", "finance_costs")
+    if full is not None:
+        return full, f"full-year figure filed for {fy} (quarter {', '.join(map(str, missing))} not loaded)"
+    return None, f"quarter(s) {', '.join(map(str, missing))} not loaded and no full-year figure"
+
+
+def _lease_figures(b: Base, facts: dict, dates: list[date]) -> tuple[list[adj.Lease] | None, str | None]:
+    """Lease figure for each balance sheet date, after the lease interest check; or the reason there is none."""
+    totals = adj.lease_totals(facts)
+    if not totals:
+        return None, "no lease liabilities from an annual report"
+    leases = [adj.lease_on(totals, d) for d in dates]
+    for x in leases:
+        if x.value is None:
+            return None, x.why
+    fy = leases[0].fiscal_year_end
+    fc, _ = fy_finance_costs(b.fin, fy)
+    why = adj.lease_interest_check(facts, fy, fc)
+    return (None, why) if why else (leases, None)
+
+
+LEASE_FORMULA = ("Including leases, lease liabilities (current + non-current) from the annual report are added; EBIT "
+                 "and EBITDA are not changed, because lease interest is inside finance costs, which EBIT already adds "
+                 "back, and right-of-use depreciation is inside depreciation")
+
+
 def _no_data(ctx, analyst_id):
     return _report(ctx, analyst_id, "No quarterly results known for this stock as of this date.", None,
                    ["financials: no results known as of this date"])
@@ -364,9 +405,9 @@ def capital_returns(ctx: AnalystContext) -> AnalystReport:
         gaps.append(f"invested capital: {m} not filed")
     ebit_def = ("EBIT = profit before tax and exceptional items + finance costs (other income kept in, for real estate)"
                 if re else "EBIT = profit before tax and exceptional items + finance costs - other income")
-    formula = ("ROIC = EBIT x (1 - effective tax rate) / (total equity + borrowings - cash, bank balances and current "
-               f"investments), with {ebit_def}. "
-               "Lease liabilities are not in quarterly filings, so they are left out of invested capital")
+    formula_core = ("ROIC = EBIT x (1 - effective tax rate) / (total equity + borrowings - cash, bank balances and current "
+                    f"investments), with {ebit_def}")
+    formula = formula_core + ". Lease liabilities are not in quarterly filings, so they are left out of invested capital"
     if ebit is not None and t is not None and ic and ic > 0:
         roic = ebit * (1 - t) / ic
         label = "EBIT including other income" if re else "EBIT"
@@ -375,13 +416,68 @@ def capital_returns(ctx: AnalystContext) -> AnalystReport:
             line += (f" Excluding other income: EBIT {_cr(ebit_ex)}"
                      + (f", ROIC {_pc(ebit_ex * (1 - t) / ic)}" if ebit_ex is not None else "") + f"; {OI_NOTE}.")
             feats["val_ebit_ex_oi_ttm"] = ebit_ex
-        parts.append(f"{line} {formula}.")
         feats.update({"val_roic": roic, "val_ebit_ttm": ebit})
+        facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
+        ic_l = None
+        dates = [end] + ([op] if ic_o is not None else [])
+        leases, why = _lease_figures(b, facts, dates)
+        if leases:
+            ic_l = sum(icx + x.value for icx, x in zip([ic_c, ic_o], leases)) / len(leases)
+        if ic_l and ic_l > 0:
+            roic_l = ebit * (1 - t) / ic_l
+            parts.append(f"ROIC including leases {_pc(roic_l)}: {label} {_cr(ebit)}, tax rate {t:.0%}, invested capital "
+                         f"including leases {_cr(ic_l)} ({how_ic}; {adj.lease_text(*leases)}).")
+            parts.append(f"Before leases: {line} {formula_core}. {LEASE_FORMULA}.")
+            feats.update({"val_lease_liabilities": leases[0].value, "val_roic_incl_leases": roic_l})
+        else:
+            if leases:
+                why = f"invested capital including leases is {_cr(ic_l)}, not positive"
+            gaps.append(f"leases: {why}; ROIC is before leases")
+            parts.append(f"{line} {formula}.")
+        parts += _rd_lines(b, facts, end, ebit, t, ic_l if ic_l and ic_l > 0 else None, gaps, feats)
     elif ic is not None and ic <= 0:
         parts.append(f"ROIC not meaningful: invested capital is {_cr(ic)} (cash exceeds equity plus debt). {formula}.")
     else:
         parts.append(f"ROIC not computed (see notes). {formula}.")
     return _report(ctx, "capital_returns", " ".join(parts), b, gaps + need, feats)
+
+
+WIDE_NOTE = "includes innovation spend, which is not R&D by the accounting definition"
+
+
+def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: float | None, gaps: list, feats: dict) -> list[str]:
+    """Rough ROIC with R&D capitalised: narrow (R&D) leads, wide (R&D and innovation) next to it."""
+    has_rows = any(i in (adj.RD_NARROW, adj.RD_WIDE) for (i, _) in facts)
+    if b.fin.basis != "consolidated":
+        if has_rows:
+            gaps.append("R&D: valuation basis is standalone; R&D is capitalised only on a consolidated basis")
+        return []
+    if not adj.rd_series(facts, adj.RD_NARROW) and not adj.rd_series(facts, adj.RD_WIDE):
+        gaps.append("R&D: no verified consolidated R&D figures in the annual report facts; not capitalised")
+        return []
+    out = []
+    for item, key, name in ((adj.RD_NARROW, "val_roic_rd_rough", "narrow: R&D only"),
+                            (adj.RD_WIDE, "val_roic_rd_wide_rough", f"wide: R&D and innovation; {WIDE_NOTE}")):
+        rd, why = adj.rd_inputs(facts, item, end)
+        if rd is None:
+            gaps.append(f"R&D ({name.split(':')[0]}): {why}; not capitalised")
+            continue
+        if ic_l is None:
+            gaps.append(f"R&D ({name.split(':')[0]}): invested capital including leases is not available; not capitalised")
+            continue
+        got = adj.roic_rd(ebit, t, ic_l, rd)
+        if got is None:
+            gaps.append(f"R&D ({name.split(':')[0]}): adjusted invested capital is not positive; not computed")
+            continue
+        roic, nopat, ic = got
+        out.append(f"Rough ROIC with R&D capitalised {_pc(roic)} ({name}): research asset {_cr(rd.asset)} "
+                   f"(R0 + 2/3 x R1 + 1/3 x R2, 3-year life, R0 = {rd.fy0}), amortisation {_cr(rd.amortisation)}, "
+                   f"EBIT change {_crs(rd.ebit_change)}, adjusted NOPAT {_cr(nopat)}, adjusted invested capital {_cr(ic)}; "
+                   f"rough: {adj.rd_caveat(rd)}.")
+        feats[key] = roic
+        if item == adj.RD_NARROW:
+            feats["val_rd_asset_rough"] = rd.asset
+    return out
 
 
 # ---------------------------------------------------------------- relative valuation
@@ -474,9 +570,13 @@ def relative_valuation(ctx: AnalystContext) -> AnalystReport:
             re = b.st.label == REAL_ESTATE
             dep = _ttm(b, b.q, "depreciation", "depreciation", need)
 
+            lead_ebitda = {}
+
             def ev_ebitda(with_oi: bool, label: str, lead: bool) -> str:
                 ebit = _ebit(b, b.q, need if lead else [], with_other_income=with_oi)
                 ebitda = ebit + dep if ebit is not None and dep is not None else None
+                if lead:
+                    lead_ebitda["v"] = ebitda
                 if ebitda is None:
                     return ""
                 if ebitda <= 0:
@@ -496,8 +596,27 @@ def relative_valuation(ctx: AnalystContext) -> AnalystReport:
             if rev:
                 s += f", EV/Sales {_x(ev / rev)}"
                 feats["val_ev_sales"] = ev / rev
-            parts.append(s + ".")
             feats["val_ev"] = ev
+            facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
+            leases, why = _lease_figures(b, facts, [end])
+            if leases:
+                ev_l = ev + leases[0].value
+                ebitda = lead_ebitda.get("v")
+                lead = f"Enterprise value including leases {_cr(ev_l)} (enterprise value + {adj.lease_text(*leases)})"
+                if ebitda is not None and ebitda > 0:
+                    lead += f", EV/EBITDA including leases {_x(ev_l / ebitda)} (same EBITDA {_cr(ebitda)})"
+                    feats["val_ev_ebitda_incl_leases"] = ev_l / ebitda
+                elif ebitda is not None:
+                    lead += f", EV/EBITDA including leases not meaningful (EBITDA is {_cr(ebitda)})"
+                if rev:
+                    lead += f", EV/Sales including leases {_x(ev_l / rev)}"
+                    feats["val_ev_sales_incl_leases"] = ev_l / rev
+                before = s.replace("; lease liabilities are not in quarterly filings and are left out", "")
+                parts.append(f"{lead}. Before leases: {before}. {LEASE_FORMULA}.")
+                feats.update({"val_ev_incl_leases": ev_l, "val_lease_liabilities": leases[0].value})
+            else:
+                gaps.append(f"leases: {why}; EV is before leases")
+                parts.append(s + ".")
     cfo, how_c = b.fin.cf_ttm("cfo")
     capex, _ = b.fin.cf_ttm("capex")
     capex_int, _ = b.fin.cf_ttm("capex_intangibles")

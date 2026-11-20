@@ -361,3 +361,42 @@ Newest at the bottom. One entry per choice, with the reason.
   It catches what the interest rate check missed (TCS's 453 gave 13.3%, inside 3% to 15%).
 - **Existing TCS and TITAN rows were not re-extracted** (no new LLM call); the new item and check apply to
   future runs and to reparse.
+
+## Valuation stage B step 2: leases and R&D in the numbers (20 Nov 2026)
+
+- **Maths in src/smt/analysts/adjustments.py (pure functions); valuation.py calls them.** Facts only through
+  owner_review.current_facts at the as_of market close (15:30 IST, same as load_financials), only rows with
+  verified = true and a value. Missing is never zero: no figure, and the reason in could_not_check.
+  Existing features are unchanged; new ones: val_lease_liabilities, val_ev_incl_leases,
+  val_ev_ebitda_incl_leases, val_ev_sales_incl_leases, val_roic_incl_leases, val_rd_asset_rough,
+  val_roic_rd_rough, val_roic_rd_wide_rough. Lenders: no change.
+- **Lease figure = current + non-current lease liabilities,** both verified, for the latest fiscal year end on
+  or before the balance sheet date. If that year has a lease row but not both verified, there is no figure
+  (no silent fall back to an older year). **400-day limit:** a year end more than 400 days before the date is
+  not used (a September balance sheet uses the March before it, 183 days).
+- **EV including leases** = EV + lease figure on the EV date; EV/EBITDA and EV/Sales use the same EBITDA and
+  revenue. **Invested capital including leases** = invested capital + lease figure at each date used (closing
+  and opening); either missing means no figure.
+- **EBIT and EBITDA are not adjusted for leases.** EBIT = profit before tax and exceptional items + finance
+  costs - other income; under Ind AS 116 lease interest is inside finance costs, so it is already added back,
+  and right-of-use depreciation stays in depreciation. Checked per stock: interest on lease liabilities for
+  the lease figure's fiscal year must be <= that year's finance costs; if larger, or not verified, no
+  lease-adjusted figures. FY26: TCS 778 vs 1,227; TITAN 247 vs 1,180 (Rs crore).
+- **Fiscal-year finance costs = the 4 quarters added up; if a quarter is not loaded, the full-year figure filed
+  with the March results** (the same 12 months, from the same filings). Reason: neither TCS's nor TITAN's
+  June 2025 quarter is loaded (results files start with Sep 2025), so the 4 quarters could not be added.
+  The owner asked for "the sum of the 4 quarters"; this fallback is my addition, stated here for review.
+- **R&D, Damodaran method, rough:** consolidated basis only, never rd_expense_standalone. 3-year life, straight
+  line. Research asset = R0 + 2/3 R1 + 1/3 R2; amortisation = (R1 + R2 + R3) / 3; adjusted NOPAT =
+  EBIT x (1 - tax rate) + (R0 - amortisation), no tax on the adjustment; adjusted invested capital = invested
+  capital including leases + research asset. R0's year end must be within 400 days of the ROIC date.
+- **Flat-history assumption:** at least 2 consecutive verified years (R0, R1) are needed; years before the
+  earliest known year are assumed equal to it. With 2 years: asset = R0 + R1, amortisation = R1, EBIT change =
+  R0 - R1. Every R&D sentence says "rough" and names the assumption and that latest fiscal year R&D is set
+  against 12-month EBIT.
+- **Owner's choice: narrow leads (rnd_expenditure), wide next to it (rd_and_innovation_total),** and the wide
+  one says innovation spend is not R&D by the accounting definition.
+- **First real run, 20 Nov 2026 (no LLM):** TCS ROIC 87.5% before leases, 74.6% including leases (lease
+  liabilities 11,283 and 9,392), rough 73.7% narrow and 69.5% wide; EV/EBITDA 10.9x -> 11.1x. TITAN ROIC
+  24.7% -> 22.5% (leases 3,173 and 2,681); EV/EBITDA 43.0x -> 43.3x; no R&D numbers (consolidated R&D not
+  found).
