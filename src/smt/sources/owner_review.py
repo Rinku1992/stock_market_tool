@@ -5,6 +5,8 @@ Nothing is edited. Both append a new row through the contract, with the payload 
 - confirm: a copy of the current row with verified = true and check_note "confirmed by owner review: <note>".
   published_at = the time of confirmation, so it is a new key: a later reparse of the LLM extraction
   (published_at = filing day) cannot overwrite it, and a backtest before the review sees the unconfirmed row.
+- correct: like confirm, but with the owner's value (in the row's stated unit) instead of the extracted one.
+  The original quote and page are kept; the wrong row stays stored and is never used (an older row).
 - add: an owner-entered figure (item, value, unit, page, quote). Code still checks the quote is on that
   page of the PDF word for word, the unit is stated there and the value is a number in the quote.
   published_at = end of the filing day, like any figure from the report.
@@ -16,10 +18,13 @@ import json
 from datetime import date, datetime, timezone
 
 from smt.data.lake import Lake
-from smt.sources.annual_report import check_fact, published_at_for
+from decimal import Decimal, InvalidOperation
 
-OWNER_ITEMS = {"rd_expense_standalone"}
+from smt.sources.annual_report import UNITS, check_fact, published_at_for
+
+OWNER_ITEMS = {"rd_expense_standalone", "rd_and_innovation_total"}
 CONFIRM_PREFIX = "confirmed by owner review: "
+CORRECT_PREFIX = "corrected by owner review: "
 
 
 def current_facts(lake: Lake, instrument_id: str | None = None, as_of: datetime | None = None) -> list[dict]:
@@ -83,6 +88,45 @@ class OwnerConfirmation:
                  "extractor": r["extractor"], "verified": True, "check_note": CONFIRM_PREFIX + d["note"],
                  "published_at": datetime.fromisoformat(d["confirmed_at"]),
                  "source_ref": f"confirms raw {(r.get('raw_sha256') or '')[:12]} (was: {r.get('check_note') or '-'})"}]
+
+
+class OwnerCorrection(OwnerConfirmation):
+    """Adapter: a copy of one current row with the owner's value. Quote and page are kept as they were."""
+
+    name = "owner_correction"
+
+    def __init__(self, row: dict, value: str | float, note: str, confirmed_at: datetime | None = None) -> None:
+        unit = row.get("unit")
+        if unit not in UNITS:
+            raise ValueError(f"this row has no usable unit ({unit!r}); it cannot be corrected, add it instead")
+        if not note.strip():
+            raise ValueError("a note saying why is needed to correct a row")
+        try:
+            printed = Decimal(str(value).replace(",", ""))
+        except InvalidOperation:
+            raise ValueError(f"value {value!r} is not a number") from None
+        self.row, self.note = row, note.strip()
+        self.printed = printed
+        self.confirmed_at = confirmed_at or datetime.now(timezone.utc)
+
+    @property
+    def context(self) -> dict:
+        return {**super().context, "action": "correct"}
+
+    def fetch(self) -> bytes:
+        d = json.loads(super().fetch())
+        d["new_value_as_printed"] = str(self.printed)
+        return json.dumps(d, sort_keys=True).encode()
+
+    def parse(self, payload: bytes) -> list[dict]:
+        (row,) = super().parse(payload)
+        d = json.loads(payload)
+        old = d["row"]["value"]
+        row["value"] = float(Decimal(d["new_value_as_printed"]) * UNITS[row["unit"]])
+        row["check_note"] = CORRECT_PREFIX + d["note"]
+        row["source_ref"] = (f"corrects raw {(d['row'].get('raw_sha256') or '')[:12]} "
+                             f"(was {old / 1e7 if old is not None else '-'} crore: {d['row'].get('check_note') or '-'})")
+        return [row]
 
 
 class OwnerEntry:

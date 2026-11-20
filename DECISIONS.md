@@ -340,3 +340,24 @@ Newest at the bottom. One entry per choice, with the reason.
 - **TCS non-current lease FY26 is very likely 9,453, not 453 (not yet confirmed):** the lease note (PDF page
   201) gives total lease liabilities at year end 11,283 (FY26) and 9,392 (FY25); less current 1,830 and 1,554
   gives 9,453 and 7,838. The balance sheet line extracts as "Lease liabilities  9 453 7,838".
+
+## Report facts: corrections and the lease sum check (20 Nov 2026)
+
+- **Correct appends, never edits:** `python -m smt.report_facts correct SYMBOL:item:YYYY-MM-DD --value N
+  --note "why"`. N is in the row's stated unit (9453 for Rs 9,453 crore). The new row keeps the original quote
+  and page, has verified = true and check_note "corrected by owner review: <note>", source owner_correction,
+  published_at = time of correction. The wrong row stays stored and is never used (older, not verified).
+  The quote no longer contains the value on a corrected row; the note says why.
+- **TCS decisions (owner, 20 Nov 2026):** confirmed R&D 421 / 420, right-of-use depreciation 1,866 / 1,820,
+  current lease liabilities 1,830 / 1,554, non-current FY25 7,838. Corrected non-current FY26 453 -> 9,453
+  crore ("PDF text split 9,453 as '9 453'; note total 11,283 minus current 1,830 = 9,453").
+- **New owner item rd_and_innovation_total** (TCS consolidated 2,900 FY26, 2,630 FY25; page 47, quote checked
+  by code). Kept apart from rnd_expenditure: TCS's innovation centre spend (2,479) is about six times its R&D.
+- **New LLM item lease_liabilities_total** (year-end total from the lease note), asked for in future runs so
+  the sum check has a total. Adds one item to the lease call; no extra call when it shares the lease pages.
+- **Lease sum check, future runs:** current + non-current lease liabilities must equal the note total within
+  1 crore, for each year the note gives a total; otherwise both rows get "needs review: lease sum mismatch
+  (...)". No total, no check. On the TCS case it flags FY26 (1,830 + 453 vs 11,283) and passes FY25.
+  It catches what the interest rate check missed (TCS's 453 gave 13.3%, inside 3% to 15%).
+- **Existing TCS and TITAN rows were not re-extracted** (no new LLM call); the new item and check apply to
+  future runs and to reparse.
