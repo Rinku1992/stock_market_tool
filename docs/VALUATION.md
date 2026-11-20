@@ -24,8 +24,17 @@ never does maths. Rules here are fixed before they are run on outcomes (see DECI
 - Consolidated figures first; standalone only when no consolidated filing exists. The basis is stated.
 - Share count = paid-up capital / face value, checked against share capital on the balance sheet (2%
   tolerance). A jump above 20% is taken as a split or bonus: only counts from then on are used.
-- Cash = cash, bank balances and current investments. Lease liabilities are not in quarterly filings
-  and are left out of debt, EV and invested capital (stated in the report).
+- Cash = cash, bank balances and current investments. Lease liabilities are not in quarterly filings:
+  they come from verified annual report facts (report_facts). Where they exist, EV and invested capital
+  "including leases" lead and the stage A figure follows as "before leases"; otherwise figures are
+  before leases and the report says so.
+- Lease figure for a balance sheet date = current + non-current lease liabilities (both verified) for the
+  latest fiscal year end on or before it, at most 400 days earlier. EBIT and EBITDA are not changed for
+  leases: lease interest is inside finance costs (checked per stock: lease interest <= the fiscal year's
+  finance costs), right-of-use depreciation inside depreciation.
+- R&D (rough, consolidated only): 3-year life, straight line. Research asset = R0 + 2/3 R1 + 1/3 R2,
+  amortisation = (R1 + R2 + R3) / 3; years before the earliest known year are assumed equal to it.
+  Narrow (R&D) leads, wide (R&D and innovation) is shown next to it.
 - EBIT = profit before tax and exceptional items + finance costs - other income.
 - A loss means no P/E. Negative EBITDA means EV/EBITDA is "not meaningful".
 
@@ -45,6 +54,6 @@ Banks, insurers and holding companies get their own rules later.
 | Stage | Builds | Status |
 |---|---|---|
 | A | earnings power, capital returns, relative valuation; lender and real estate rules; split, basis and loss traps | Built 13 Nov 2026 |
-| B | accounting adjustments: clean-up of exceptional and one-off items, lease liabilities and R&D from annual reports | Planned |
+| B | accounting adjustments: clean-up of exceptional and one-off items, lease liabilities and R&D from annual reports | Leases and R&D built 20 Nov 2026 (facts extracted and reviewed for TCS, TITAN); one-off items planned |
 | C | reverse valuation: growth and returns the price implies; multiples against own history and peers | Planned |
 | D | value range and margin of safety; first directional views, only after a backtest | Planned |
