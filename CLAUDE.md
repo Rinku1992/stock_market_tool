@@ -1,6 +1,6 @@
 # Rules for any Claude session working in this repo
 
-Read `docs/BLUEPRINT.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They are the source of truth.
+Read `docs/BLUEPRINT.md`, `docs/ANALYST_CHECKLIST.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They are the source of truth.
 
 ## Hard rules
 
@@ -20,6 +20,10 @@ Read `docs/BLUEPRINT.md`, `docs/DATA_CONTRACT.md` and `DECISIONS.md` first. They
 
 ## Working rules
 
+- Before any plan or build, run docs/ANALYST_CHECKLIST.md (Part A always,
+  the Part B modules and Part C sector playbook that fit, Part D for code). Put the 'Checklist result'
+  block at the top of your reply. The standard is what a great analyst or fund manager would build,
+  not a generic solution. Follow its stop rules.
 - Run `git pull` before starting. Work on a branch, run `pytest`, then merge to `main`.
 - Every change needs tests. `pytest` must pass before a push.
 - GitHub runs all tests on every push (`.github/workflows/tests.yml`). After a push, check the run passed:

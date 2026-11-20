@@ -400,3 +400,14 @@ Newest at the bottom. One entry per choice, with the reason.
   liabilities 11,283 and 9,392), rough 73.7% narrow and 69.5% wide; EV/EBITDA 10.9x -> 11.1x. TITAN ROIC
   24.7% -> 22.5% (leases 3,173 and 2,681); EV/EBITDA 43.0x -> 43.3x; no R&D numbers (consolidated R&D not
   found).
+
+## Analyst checklist before every plan or build (owner, 20 Nov 2026)
+
+- **docs/ANALYST_CHECKLIST.md is run before any plan or build:** Part A (12 gates) always, the Part B modules
+  and Part C sector playbook that fit, Part D for anything coded. The "Checklist result" block goes at the
+  top of the reply, each line pass, gap or not verified; a gap is fixed in the task or logged here as an
+  open item. Its stop rules apply (stop and ask the owner when no decision is served, a needed input cannot
+  be verified, the method would be generic where a sector playbook says otherwise, or two or more gaps
+  cannot be fixed in the task). Reason: the standard is what a great analyst or fund manager would build,
+  not a generic solution. Added to CLAUDE.md (read-first line and working rules). The checklist text is
+  the owner's and is not edited by Claude.
