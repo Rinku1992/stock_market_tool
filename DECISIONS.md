@@ -443,3 +443,32 @@ Newest at the bottom. One entry per choice, with the reason.
   one short line "R&D is X.X% of revenue: not material for this company (rough ROIC with it capitalised:
   Y%)"; features still stored. 1% or more: the full rough sentence plus the share. R&D uses the lead invested
   capital (with gold on loan when present). TCS: narrow 0.1% (not material), wide 1.0% (about 1.01%, kept).
+
+## TITAN gold on loan for September 2025 and 2026 (21 Nov 2026)
+
+- **Source:** TITAN results PDFs (board meeting outcome), saved by the owner from a browser: half year to
+  30 Sep 2025 (board meeting Monday 3 Nov 2025) and half year to 30 Sep 2026 (board meeting Thursday 5 Nov
+  2026), stored as data/annual_reports/TITAN_2025-09-30_results.pdf and TITAN_2026-09-30_results.pdf (data/
+  is not in git). A curl download from titancompany.in got a 406 bot-filter page; not worked around.
+- **Checks (code text search, no LLM):**
+  30 Sep 2026, consolidated balance sheet page 11: "(ii) Gold on loan 12,278 16,070". Borrowings 74 + 24,191,
+  same as the lake (difference 0). 30 Sep 2025, page 16: labels and values are in separate text columns; the
+  value column in order reads borrowings 9,099, gold on loan 16,088, lease 377; both liability sub-totals add
+  up (3,337 and 35,890). Borrowings 547 + 9,099, same as the lake. Gold on loan is not inside borrowings on
+  either date: the September 2026 open item from 20 Nov is closed (the jump in borrowings is real bank debt).
+  The March columns in both PDFs (16,070 and 7,810) match the annual report.
+- **XBRL tag holding gold on loan (not verified):** 30 Sep 2025 in trade payables to other creditors
+  (18,342 = 16,088 + 2,254); 30 Sep 2026 in OtherCurrentFinancialLiabilities (13,536 = 12,278 + current lease
+  486 + other 772). The tag changes between filings. EV and invested capital use only equity, borrowings and
+  cash, so neither tag changes our numbers.
+- **Odd numbers kept as printed (not verified):** the Sep 2026 text shows "Other financial liabilities m";
+  772 is worked out from the sub-total 48,962. Sep 2025 XBRL current financial liabilities 29,524 = PDF
+  29,901 less the current lease 377 (filed under other current liabilities 6,034 = 5,657 + 377).
+- **Rows added by the owner** (report_facts add, verified, published_at = filing day): 2025-03-31 7,810;
+  2025-09-30 16,088; 2026-03-31 16,070; 2026-09-30 12,278.
+- **TITAN as of 20 Nov 2026** (12 months to 2026-09-30; ROIC averages 2025-09-30 and 2026-09-30; leases from
+  FY26 and FY25 annual reports, 3,173 and 2,681; gold 12,278 and 16,088):
+  EV 452,676 / 455,849 / 468,127 crore; EV/EBITDA 43.0x / 43.3x / 44.5x; ROIC 24.7% / 22.5% / 15.6%
+  (before leases / including leases / including leases and gold on loan). Gold on loan fell from 16,070 to
+  12,278 in six months while current borrowings rose from 11,285 to 24,191: TITAN seems to have moved funding
+  from gold loans to bank debt (not verified), so the "before leases" EV already carries more debt.

@@ -38,7 +38,9 @@ never does maths. Rules here are fixed before they are run on outcomes (see DECI
   ROIC date: one short "not material" line (features still stored).
 - Gold on loan (jewellers): treated as debt, from a verified balance sheet line for the SAME date only
   (no carry forward). Where it exists for every date needed, EV and ROIC including leases and gold on loan
-  lead, then including leases, then before leases. Otherwise one fact line and the reason.
+  lead, then including leases, then before leases. Otherwise one fact line and the reason. Half-year
+  figures come from the results PDF balance sheet (TITAN: Mar and Sep 2025, Mar and Sep 2026 added 21 Nov
+  2026; borrowings checked against the lake on each date so gold is never counted twice).
 - EBIT = profit before tax and exceptional items + finance costs - other income.
 - A loss means no P/E. Negative EBITDA means EV/EBITDA is "not meaningful".
 

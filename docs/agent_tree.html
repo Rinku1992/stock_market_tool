@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Gold on loan and R&D materiality built", "Jewellers: gold on loan treated as debt, only for the exact balance sheet date. TITAN's March figures can be added; September figures need its results PDFs. TCS R&D is 0.1% of revenue: shown as not material."],
-  next: ["Your add commands for TITAN gold on loan, then September results PDFs", "With March rows only, TITAN shows a fact line; the September 2026 balance sheet needs its own figure (and a check that borrowings do not already hold it)."],
+  now: ["TITAN gold on loan in the numbers", "Four verified gold rows (Mar and Sep 2025, Mar and Sep 2026). TITAN ROIC: 24.7% before leases, 22.5% with leases, 15.6% with leases and gold on loan. EV/EBITDA 43.0x / 43.3x / 44.5x."],
+  next: ["One-off items (accounting adjustments)", "The last part of valuation stage B: clean one-off items before valuing."],
   you: ["Record each trading day, plus one bank file", "After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["21 Nov", "TITAN September results PDFs checked by code: gold on loan 12,278 (Sep 2026) and 16,088 (Sep 2025) is separate from borrowings, which match the lake. Four gold rows added by you. ROIC with leases and gold on loan 15.6%."],
   ["20 Nov", "Gold on loan added as a debt-like item for jewellers (exact date rule; checks: not inside borrowings in March 2026, interest inside finance costs). R&D under 1% of revenue now gets one short 'not material' line."],
   ["20 Nov", "Leases and R&D now in valuation (stage B step 2): EV and ROIC including leases, rough ROIC with R&D capitalised (narrow and wide). EBIT not adjusted: lease interest is already inside finance costs (checked per stock)."],
   ["20 Nov", "TCS review done: 7 rows confirmed, non-current lease corrected 453 to 9,453 (correct command, new row, wrong row kept). Lease sum check added: current + non-current must equal the lease note total. TCS R&D plus innovation added."],
