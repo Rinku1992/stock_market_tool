@@ -1,32 +1,32 @@
 {
   "name": "cost_of_capital",
-  "version": "empty",
-  "entered_on": null,
+  "version": "2026-11-23.4",
+  "entered_on": "2026-11-23",
   "unit": "percent",
   "inputs": {
     "gsec_10y": {
-      "value": null,
-      "source": null,
-      "source_date": null,
-      "entered_on": null
+      "value": 7.2116,
+      "source": "CCIL tenor-wise indicative yields, 6.94% GS 2036",
+      "source_date": "2026-11-20",
+      "entered_on": "2026-11-23"
     },
     "mature_erp": {
-      "value": null,
-      "source": null,
-      "source_date": null,
-      "entered_on": null
+      "value": 4.23,
+      "source": "Damodaran country risk premium table, Aaa countries",
+      "source_date": "2026-01-05",
+      "entered_on": "2026-11-23"
     },
     "india_crp": {
-      "value": null,
-      "source": null,
-      "source_date": null,
-      "entered_on": null
+      "value": 2.85,
+      "source": "Damodaran country risk premium table, India row",
+      "source_date": "2026-01-05",
+      "entered_on": "2026-11-23"
     },
     "india_default_spread": {
-      "value": null,
-      "source": null,
-      "source_date": null,
-      "entered_on": null
+      "value": 1.87,
+      "source": "Damodaran country risk premium table, India row",
+      "source_date": "2026-01-05",
+      "entered_on": "2026-11-23"
     }
   }
 }

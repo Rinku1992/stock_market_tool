@@ -20,7 +20,7 @@ BETA_BAND = 0.2
 KD_MIN, KD_MAX = 0.04, 0.15
 BETA_LABEL = "rough: one year of prices; an industry beta needs peers (later)"
 RF_NOTE = ("the bond yield already holds India's default risk and the country risk premium holds it too, so the "
-           "default spread is taken off once so it is not counted twice")
+           "default spread is taken off once, not counted twice")
 GROWTH_LINE = "Growth adds value only when ROIC is above the cost of capital."
 
 

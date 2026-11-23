@@ -89,10 +89,12 @@ def test_wacc_and_spread_by_hand():
 
 # ---------------------------------------------------------------- assumptions file
 
-def test_shipped_file_is_empty():
+def test_shipped_empty_version_is_kept_and_current_file_has_all_inputs():
+    empty = json.loads((assumptions.FOLDER / "history" / "cost_of_capital_empty.json").read_text())
+    assert empty["entered_on"] is None and all(x["value"] is None for x in empty["inputs"].values())
     doc = json.loads((assumptions.FOLDER / "cost_of_capital.json").read_text())
-    assert doc["entered_on"] is None and all(x["value"] is None for x in doc["inputs"].values())
     assert set(doc["inputs"]) == set(assumptions.INPUTS)
+    assert all(x["value"] is None or (x["source"] and x["source_date"]) for x in doc["inputs"].values())
 
 
 def test_each_set_is_a_new_version_and_old_ones_are_kept(tmp_path):
@@ -121,10 +123,11 @@ def test_reverse_valuation_by_hand(tmp_path, coc):
     ctx = _build(tmp_path)
     capital_returns(ctx)
     f = reverse_valuation(ctx).finding
-    assert "Cost of equity 9.8% to 12.2% (base 11.0%) = risk-free 5.0% + beta x (mature market equity risk premium 4.0% " \
-           "+ India country risk premium 2.0%)" in f
-    assert ("Risk-free 5.0% = India 10-year government bond yield 7.00% (src gsec_10y, 2025-11-01) minus India default "
+    assert "Cost of equity 9.8% to 12.2% (base 11.0%) = risk-free 5.00% + beta x (mature market equity risk premium " \
+           "4.00% + India country risk premium 2.00%)" in f
+    assert ("Risk-free 5.00% = India 10-year government bond yield 7.00% (src gsec_10y, 2025-11-01) minus India default "
             "spread (Damodaran, same table) 2.00% (src india_default_spread, 2025-11-01): the bond yield already holds") in f
+    assert "taken off once, not counted twice" in f
     assert "Beta 1.00 (range 0.80 to 1.20) = 0.67 x raw 1-year beta to Nifty 50 1.00" in f and cc.BETA_LABEL in f
     assert ("Cost of debt 14.5% before tax = 12-month finance costs Rs 80 crore to 2025-09-30 / average debt Rs 550 crore "
             "(average of 2024-09-30 and 2025-09-30; debt before leases") in f

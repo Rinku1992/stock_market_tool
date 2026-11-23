@@ -44,6 +44,21 @@ never does maths. Rules here are fixed before they are run on outcomes (see DECI
 - EBIT = profit before tax and exceptional items + finance costs - other income.
 - A loss means no P/E. Negative EBITDA means EV/EBITDA is "not meaningful".
 
+## Cost of capital (stage C step 1)
+
+- Inputs are entered by the owner (`python -m smt.assumptions set ...`), versioned in
+  src/smt/assumptions/cost_of_capital.json with history/. A run on date D uses the latest version entered on
+  or before D. Never guessed, never fetched. Stale: G-sec older than 45 days, the other three older than 400.
+- Risk-free = 10-year G-sec yield - India default spread (default risk is in the bond yield and in the
+  country risk premium; taken off once).
+- Beta = 0.67 x raw 1-year beta to Nifty 50 + 0.33 (Blume), kept inside 0.6 to 1.5; range +/- 0.2. Rough:
+  one year of prices; an industry beta needs peers (later).
+- Cost of equity = risk-free + beta x (mature market ERP + India country risk premium); low, base, high.
+- Cost of debt (before tax) = 12-month finance costs / average debt, debt = borrowings (+ leases) (+ gold on
+  loan) as the lead ROIC view, same dates. Used only inside 4% to 15%; else cost of equity only.
+- WACC at market value weights (debt on the latest date), tax rate as ROIC. Spread = lead ROIC - WACC.
+  Lenders: no WACC; ROE against cost of equity.
+
 ## Sector rules
 
 | Type | Router rule | What changes |
@@ -61,5 +76,5 @@ Banks, insurers and holding companies get their own rules later.
 |---|---|---|
 | A | earnings power, capital returns, relative valuation; lender and real estate rules; split, basis and loss traps | Built 13 Nov 2026 |
 | B | accounting adjustments: clean-up of exceptional and one-off items, lease liabilities and R&D from annual reports | Leases and R&D built 20 Nov 2026 (facts extracted and reviewed for TCS, TITAN); gold on loan and R&D materiality built 20 Nov 2026; one-off items planned |
-| C | reverse valuation: growth and returns the price implies; multiples against own history and peers | Planned |
+| C | reverse valuation: growth and returns the price implies; multiples against own history and peers | Step 1 built 23 Nov 2026: cost of capital (owner-entered inputs) and ROIC against it; implied growth and multiples against history and peers planned |
 | D | value range and margin of safety; first directional views, only after a backtest | Planned |

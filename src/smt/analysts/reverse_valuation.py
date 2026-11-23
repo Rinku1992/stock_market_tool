@@ -23,6 +23,10 @@ def _p(x: float) -> str:
     return f"{x:.1%}"
 
 
+def _p2(x: float) -> str:
+    return f"{x:.2%}"
+
+
 def _pts(x: float) -> str:
     return f"{x * 100:+.1f}"
 
@@ -55,8 +59,8 @@ def reverse_valuation(ctx: AnalystContext) -> AnalystReport:
     rf = cc.risk_free(g.value, d.value)
     ke = cc.cost_of_equity_range(rf, beta, erp.value, crp.value)
     parts.append(
-        f"Cost of equity {_range(ke[0], ke[1], ke[2])} = risk-free {_p(rf)} + beta x (mature market equity risk premium "
-        f"{_p(erp.value)} + India country risk premium {_p(crp.value)}). Risk-free {_p(rf)} = {g.text()} minus "
+        f"Cost of equity {_range(ke[0], ke[1], ke[2])} = risk-free {_p2(rf)} + beta x (mature market equity risk premium "
+        f"{_p2(erp.value)} + India country risk premium {_p2(crp.value)}). Risk-free {_p2(rf)} = {g.text()} minus "
         f"{d.text()}: {cc.RF_NOTE}. Inputs: {erp.text()}; {crp.text()}. Beta {beta.base:.2f} (range {beta.low:.2f} to "
         f"{beta.high:.2f}) = 0.67 x raw 1-year beta to Nifty 50 {beta.raw:.2f} (daily closes to {bars[-1].d}) + 0.33 "
         f"(Blume), kept inside {cc.BETA_MIN} to {cc.BETA_MAX}" + (" (limit applied)" if beta.clamped else "")

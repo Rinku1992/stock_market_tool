@@ -1,0 +1,32 @@
+{
+  "name": "cost_of_capital",
+  "version": "2026-11-23.2",
+  "entered_on": "2026-11-23",
+  "unit": "percent",
+  "inputs": {
+    "gsec_10y": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    },
+    "mature_erp": {
+      "value": 4.23,
+      "source": "Damodaran country risk premium table, Aaa countries",
+      "source_date": "2026-01-05",
+      "entered_on": "2026-11-23"
+    },
+    "india_crp": {
+      "value": 2.85,
+      "source": "Damodaran country risk premium table, India row",
+      "source_date": "2026-01-05",
+      "entered_on": "2026-11-23"
+    },
+    "india_default_spread": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    }
+  }
+}
