@@ -116,7 +116,7 @@ def call_rows(state: dict, instrument_id: str, close: float, version: str, recor
         for h in verdict.horizons:
             rows.append({**base, "source_kind": "verdict", "source_id": "verdict", "horizon": h.horizon.value,
                          "direction": _VERDICT_DIRECTION[h.call.value], "call": h.call.value, "strength": None,
-                         "confidence": h.confidence, "weights_version": None, "report_json": js})
+                         "confidence": h.confidence, "weights_version": verdict.weights_version, "report_json": js})
     return rows
 
 

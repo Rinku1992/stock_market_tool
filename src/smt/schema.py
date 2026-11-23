@@ -126,6 +126,8 @@ class Verdict(BaseModel):
     stock_type: str | None = None
     horizons: list[HorizonVerdict] = Field(default_factory=list)
     refused_reason: str | None = None
+    weights_version: str | None = None  # verdict weights file version used by the scoring engine
+    not_checked: list[str] = Field(default_factory=list)  # what the verdict could not check
 
 
 def neutral_views() -> list[HorizonView]:

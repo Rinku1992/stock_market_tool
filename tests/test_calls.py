@@ -12,6 +12,7 @@ from smt.calls import IST, CallRecord, code_version, RecordRefused, call_rows, c
 from smt.data.contract import CALLS
 from smt.data.lake import Lake
 from smt.data.validate import ContractError, conform
+from smt.desks.lead import load_weights
 from smt.graph import run
 from smt.kite_cli import update_targets, update_window
 from smt.record import print_status
@@ -112,6 +113,7 @@ def test_rows_pass_the_contract_and_cover_every_source(tmp_path):
     assert {r[4] for r in rows if r[0] == "verdict"} == {"no_call"} and all(r[3] == "neutral" for r in rows if r[0] == "verdict")
     assert all(r[4] is None for r in rows if r[0] != "verdict")
     assert all(r[6] for r in rows if r[0] == "desk") and all(r[6] is None for r in rows if r[0] == "analyst")
+    assert {r[6] for r in rows if r[0] == "verdict"} == {load_weights("verdict")["version"]}
     assert rows[0][5] == pytest.approx(100 * 1.001 ** 319)  # close on the day
 
 

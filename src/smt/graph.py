@@ -20,7 +20,8 @@ from smt.data.lake import Lake
 from smt.desks.lead import lead_report
 from smt.llm import LLMClient
 from smt.router import stock_type_router
-from smt.schema import AnalystReport, Call, DataGrade, DeskReport, Horizon, HorizonVerdict, Verdict
+from smt.schema import AnalystReport, DataGrade, DeskReport, Verdict
+from smt.scoring import price_problem, score
 from smt.store import FeatureStore
 
 
@@ -100,19 +101,9 @@ def build_graph(
         return {}  # placeholder until the independent review unit is built (phase 5)
 
     def verdict(state: RunState) -> dict:
-        # placeholder until the scoring engine is built (phase 3): always "no call"
-        return {
-            "verdict": Verdict(
-                symbol=state["symbol"],
-                as_of=state["as_of"],
-                data_grade=state["data_grade"],
-                stock_type=state.get("stock_type"),
-                horizons=[
-                    HorizonVerdict(horizon=h, call=Call.NO_CALL, confidence=0.0, reasons=["scoring engine not built yet"])
-                    for h in Horizon
-                ],
-            )
-        }
+        why = price_problem(lake, state.get("instrument_id"), state["as_of"])
+        return {"verdict": score(state["symbol"], state["as_of"], state["data_grade"], state.get("stock_type"),
+                                 state.get("desk_reports", []), list(desks), why)}
 
     g = StateGraph(RunState)
     g.add_node("data_office", data_office)

@@ -563,3 +563,30 @@ Newest at the bottom. One entry per choice, with the reason.
   36.5% / 40.8%; before leases 24.7%: 31.6% / 35.4% / 39.3%; 15 years lead: 27.9% / 32.6% / 38.5%.
   M&MFIN: P/B 1.45x; implied lasting ROE 19.1% / 21.1% / 23.2% (g = 0) and 16.7% / 18.7% / 20.8% (g = 5.34%);
   last 12 months' ROE 13.8%.
+
+## Scoring engine: desk views to a verdict per horizon (23 Nov 2026)
+
+- **Replaces the stub** in graph.py that always said "no call". Plain code in src/smt/scoring.py; no LLM.
+- **Weights:** per desk and horizon, in a versioned file desks/weights/verdict.json (same history/ rules as
+  desk weights; calibrate.write_weights can write it). Shipped with every weight 0: no desk view has been
+  scored against outcomes yet. With all weights 0 for a horizon, the call is "no call" and the reason says
+  so ("no desk has a proven edge for this horizon yet ... weights version"). A verdict from unproven rules
+  would look like advice.
+- **Score:** sum(w x sign x strength x confidence) / sum(w); confidence = sum(w x confidence) / sum(w), over
+  desks with weight above 0 (the desk lead's rule, one level up). Desks pointing opposite ways are listed.
+- **Thresholds, fixed before use** in the same file: consider needs score >= +0.10 and confidence >= 0.30;
+  avoid needs score <= -0.10 and confidence >= 0.30; else no call. 0.10 is twice the desk lead's neutral band
+  (0.05); 0.30 is the cap on untested rules' confidence. Both are my starting choices for the owner to
+  review; they matter only once a weight is above 0.
+- **Blocks (no call, with the reason):** price missing, latest close more than 7 days before as_of, or older
+  than the Nifty 50's latest close; a desk with weight above 0 missing or with no built analyst (no facts).
+  Desks with weight 0 that are not built do not block; they are listed under "not checked".
+- **Reported:** each horizon has its call, confidence (0 for no call) and reasons (desk contributions,
+  disagreements, score against thresholds, blocks). The verdict carries weights_version and not_checked:
+  open items (review veto not applied, data grade placeholder, kill criteria not set), desks not built, and
+  every desk's data gaps. Schema: two new optional fields on Verdict; old stored verdict JSON still reads.
+- **Call history:** not changed. New verdict rows carry the verdict weights version in weights_version
+  (previously empty for verdict rows).
+- **Open items:** review veto (task 3), data grade (task 4), kill criteria (sentinel).
+- **First run, 23 Nov 2026:** TCS, TITAN, M&MFIN: no call on every horizon (all weights 0; also price to
+  13 Nov, more than 7 days old).
