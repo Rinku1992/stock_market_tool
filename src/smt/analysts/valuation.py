@@ -535,6 +535,104 @@ def _rd_lines(b: Base, facts: dict, end: date, ebit: float, t: float, ic_l: floa
     return out
 
 
+# ---------------------------------------------------------------- shared with reverse_valuation
+
+@dataclass
+class MarketValue:
+    value: float | None
+    text: str = ""
+    gaps: list[str] = field(default_factory=list)  # price staleness and share count flags
+    flags: list[str] = field(default_factory=list)
+    why: str | None = None
+
+
+def market_value(ctx: AnalystContext, b: Base) -> MarketValue:
+    """Share count from the filings x latest stored close."""
+    shares, sh_date, flags = share_count(b.fin)
+    bars = load_bars(ctx.lake, ctx.instrument_id, ctx.as_of)
+    if shares is None or not bars:
+        return MarketValue(None, flags=flags,
+                           why="market value: " + ("no usable share count" if shares is None else "no price loaded"))
+    px = bars[-1]
+    gaps = []
+    if (ctx.as_of - px.d).days > PRICE_STALE_DAYS:
+        gaps.append(f"price: latest stored close is {px.d}, more than {PRICE_STALE_DAYS} days old")
+    gaps += [f"share count: {fl}" for fl in flags]
+    mcap = shares * px.close
+    text = (f"Market value {_cr(mcap)} ({shares / CRORE:,.2f} crore shares from the filing for {sh_date} "
+            f"x close Rs {px.close:,.2f} on {px.d})")
+    return MarketValue(mcap, text, gaps, flags)
+
+
+VIEW_BEFORE, VIEW_LEASES, VIEW_GOLD = "before leases", "including leases", "including leases and gold on loan"
+
+
+@dataclass
+class LeadCapital:
+    """The ROIC view that leads in capital_returns, with the debt on the same dates and rules."""
+    view: str
+    roic: float
+    ebit: float
+    tax_rate: float
+    end: date
+    dates: list[date]  # [closing] or [closing, a year earlier]
+    debt: list[float]  # per date: borrowings (+ lease liabilities) (+ gold on loan), as the view
+    debt_text: str
+
+
+def lead_capital(ctx: AnalystContext, b: Base) -> tuple[LeadCapital | None, str | None]:
+    """Same steps as capital_returns (tested to give the same lead ROIC); or None and the reason."""
+    bs = b.fin.bs_dates()
+    if not bs:
+        return None, "balance sheet not loaded"
+    end = bs[-1]
+    ebit = _ebit(b, end, [], with_other_income=b.st.label == REAL_ESTATE)
+    tax, pbt = b.fin.ttm(end, "tax")[0], b.fin.ttm(end, "pbt")[0]
+    t = tax / pbt if tax is not None and pbt and pbt > 0 else None
+    if t is not None and not 0 <= t <= 1:
+        t = None
+    ic_c, _ = _invested(b.fin, end)
+    op = b.fin.opening(end)
+    ic_o, _ = _invested(b.fin, op) if op else (None, [])
+    if ebit is None or t is None or ic_c is None:
+        return None, "ROIC not computed (EBIT, tax rate or invested capital missing)"
+    dates, ics = ([end, op], [ic_c, ic_o]) if ic_o is not None else ([end], [ic_c])
+    borrow = [sum(b.fin.get(d, "I", k) for k in ("borrowings_noncurrent", "borrowings_current")) for d in dates]
+    avg = lambda xs: sum(xs) / len(xs)
+    view, ic, debt = VIEW_BEFORE, avg(ics), borrow
+    text = "borrowings " + " and ".join(f"{_cr(x)} on {d}" for x, d in zip(borrow, dates))
+    facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
+    leases, _ = _lease_figures(b, facts, dates)
+    if leases:
+        ic_l = avg([i + x.value for i, x in zip(ics, leases)])
+        if ic_l > 0:
+            view, ic = VIEW_LEASES, ic_l
+            debt = [d + x.value for d, x in zip(borrow, leases)]
+            text += "; " + adj.lease_text(*leases)
+            gold = adj.gold_on(adj.gold_series(facts), dates)[0] if adj.has_gold_rows(facts) else None
+            if gold:
+                ic_g = avg([i + x.value + g for i, x, g in zip(ics, leases, gold)])
+                if ic_g > 0:
+                    view, ic = VIEW_GOLD, ic_g
+                    debt = [d + g for d, g in zip(debt, gold)]
+                    text += "; " + adj.gold_text(adj.gold_series(facts), dates)
+    if ic <= 0:
+        return None, f"invested capital is {_cr(ic)}, not positive"
+    return LeadCapital(view, ebit * (1 - t) / ic, ebit, t, end, dates, debt, text), None
+
+
+def roe_inputs(b: Base) -> tuple[float | None, date | None]:
+    """ROE as capital_returns computes it: owners' profit for 12 months to the latest balance sheet / average
+    owners' equity."""
+    bs = b.fin.bs_dates()
+    if not bs:
+        return None, None
+    end = bs[-1]
+    own, _ = b.fin.ttm(end, "net_profit_owners")
+    eq, _ = b.fin.avg(end, "equity_owners")
+    return (_ratio(own, eq) if eq and eq > 0 else None), end
+
+
 # ---------------------------------------------------------------- relative valuation
 
 def relative_valuation(ctx: AnalystContext) -> AnalystReport:
@@ -542,19 +640,14 @@ def relative_valuation(ctx: AnalystContext) -> AnalystReport:
     if b is None:
         return _no_data(ctx, "relative_valuation")
     gaps, need, feats = list(b.gaps), [], {}
-    shares, sh_date, flags = share_count(b.fin)
-    bars = load_bars(ctx.lake, ctx.instrument_id, ctx.as_of)
-    if shares is None or not bars:
-        gaps.append("market value: " + ("no usable share count" if shares is None else "no price loaded"))
-        return _report(ctx, "relative_valuation", b.st.describe() + " Market value not computed.", b, gaps + flags)
-    px = bars[-1]
-    if (ctx.as_of - px.d).days > PRICE_STALE_DAYS:
-        gaps.append(f"price: latest stored close is {px.d}, more than {PRICE_STALE_DAYS} days old")
-    mcap = shares * px.close
-    parts = [b.st.describe(), f"Market value {_cr(mcap)} ({shares / CRORE:,.2f} crore shares from the filing for {sh_date} "
-                              f"x close Rs {px.close:,.2f} on {px.d}). Basis: {b.fin.basis}."]
+    mv = market_value(ctx, b)
+    if mv.value is None:
+        gaps.append(mv.why)
+        return _report(ctx, "relative_valuation", b.st.describe() + " Market value not computed.", b, gaps + mv.flags)
+    mcap = mv.value
+    gaps += mv.gaps
+    parts = [b.st.describe(), f"{mv.text}. Basis: {b.fin.basis}."]
     feats["val_market_cap"] = mcap
-    gaps += [f"share count: {fl}" for fl in flags]
 
     own = _ttm(b, b.q, "net_profit_owners", "owners' profit", need)
     np_, _ = b.fin.ttm(b.q, "net_profit")

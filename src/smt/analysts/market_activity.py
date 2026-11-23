@@ -111,14 +111,22 @@ def liquidity(ctx: AnalystContext) -> AnalystReport:
                    evidence=_evidence(ctx.instrument_id, bars))
 
 
+def beta_1y(lake, instrument_id: str, as_of) -> tuple[tuple[float, float] | None, str | None, list[Bar]]:
+    """1-year beta and R2 to the Nifty 50 from daily closes known on as_of; or None and the reason.
+    Shared by market_beta and reverse_valuation so both use the same number."""
+    bars = load_bars(lake, instrument_id, as_of)
+    idx = load_bars(lake, BENCHMARK, as_of)
+    out = ind.beta_r2({b.d: b.close for b in bars}, {b.d: b.close for b in idx})
+    if out is None:
+        return None, ("no index prices loaded" if not idx else "not enough overlapping history"), bars
+    return out, None, bars
+
+
 def market_beta(ctx: AnalystContext) -> AnalystReport:
     """How much of the stock's daily movement is just the market. Context, not a signal."""
     aid = "market_beta"
-    bars = load_bars(ctx.lake, ctx.instrument_id, ctx.as_of)
-    idx = load_bars(ctx.lake, BENCHMARK, ctx.as_of)
-    out = ind.beta_r2({b.d: b.close for b in bars}, {b.d: b.close for b in idx})
+    out, why, bars = beta_1y(ctx.lake, ctx.instrument_id, ctx.as_of)
     if out is None:
-        why = "no index prices loaded" if not idx else "not enough overlapping history"
         return _report(ctx, aid, f"Beta not computed: {why}.", could_not_check=[f"market beta: {why}"])
     beta, r2 = out
     _save(ctx, aid, {"beta_1y": beta, "r2_1y": r2})
