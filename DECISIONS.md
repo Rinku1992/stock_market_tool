@@ -517,3 +517,49 @@ Newest at the bottom. One entry per choice, with the reason.
   10.4-13.0%; ROIC 15.6%; spread +2.6 to +5.2 points.
   M&MFIN (lender): beta raw 1.45, base 1.30; cost of equity 13.1-16.0% (base 14.5%); ROE 13.8%; spread -2.2
   to +0.6 points.
+
+## Valuation stage C step 2: what the current price assumes (23 Nov 2026)
+
+- **Label:** "what the price assumes, not a forecast or a fair value". Views stay neutral. Inputs are the
+  lead view of capital_returns (valuation.lead_capital: EBIT, tax rate, ROIC of every view) and the WACC
+  low/base/high from step 1. Lead EV = market value + lead-view debt on the latest balance sheet date +
+  minority interest - cash, bank balances and current investments (same as relative_valuation's lead EV).
+  Any input missing (no WACC, EBIT <= 0, no positive EV): not computed, with the reason.
+- **No-growth share:** NOPAT0 / WACC divided by lead EV, for WACC low/base/high. NOPAT0 = 12-month EBIT x (1 -
+  tax rate). At or above 100%: "the price assumes no growth, or a fall in profit".
+- **Implied growth model:** NOPAT grows at g a year for N years (10, and 15 for the lead case).
+  Reinvestment = NOPAT x g / R (R = return on new capital), free cash flow = NOPAT x (1 - g / R). Terminal
+  value at year N = NOPAT(N+1) / WACC, where NOPAT(N+1) = NOPAT(N) x (1 + g) is earned by the capital put in
+  during year N. Discounted at WACC, end of year. Check: g = 0 gives NOPAT0 / WACC exactly (tested).
+- **Why the terminal value uses return = cost of capital:** after year N the advantage is assumed gone, so
+  new capital earns only WACC. Growth then adds no value: with R = WACC, NOPAT(N+1) x (1 - g/WACC) /
+  (WACC - g) = NOPAT(N+1) / WACC for any g. No terminal growth input is needed, and the price cannot hide a
+  forever-growth assumption in the terminal value (the usual way a DCF is made to fit).
+- **R cases:** (a) R = lead ROIC; (b) each other ROIC view the stock has, labelled by view (TITAN: including
+  leases and gold on loan, including leases, before leases). R <= WACC: growth adds no value, not solved.
+- **Solver:** bisection on g from -10% to +60% (value rises with g when R > WACC), stopping within 1e-10 x EV.
+  First version stopped on a fixed rupee amount and returned the first midpoint (25%) on small units;
+  caught by a test before use and changed to a tolerance relative to the EV.
+- **60% limit:** no g up to 60% gives the EV -> "no growth rate up to 60% a year explains the price under
+  these assumptions", no number printed, nothing stored. Value above the EV even at -10%: said so, no
+  number. 60% for 10 years is about 110x NOPAT; beyond that the model says nothing useful.
+- **Comparison:** latest year-on-year growth in 12-month revenue and EBIT, only if 8 quarters are loaded;
+  else "not loaded" with the count. Long history and peers later.
+- **Lenders:** no cash flow model (lending is the operating cash flow). Implied lasting ROE = g + P/B x
+  (cost of equity - g), from P/B = (ROE - g) / (cost of equity - g) (Gordon on book value). Growth cases:
+  g = 0, and g = risk-free ("long-run growth assumed equal to the risk-free rate"), for cost of equity
+  low/base/high. Cost of equity <= g: not computed. P/B = market value / owners' equity on the latest
+  balance sheet date.
+- **Features:** val_no_growth_share (base WACC), val_implied_growth_10y (lead R, base WACC), _10y_low and
+  _10y_high (lead R at WACC low and high), val_implied_growth_15y (lead R, base WACC); lenders
+  val_implied_roe (g = risk-free, base cost of equity).
+- **First run, as of 23 Nov 2026** (prices to 13 Nov, flagged; 5 quarters loaded, so no year-on-year
+  comparison; numbers printed as they are, not verified):
+  TCS: lead EV including leases 830,071 crore (includes minority interest 1,008); NOPAT 52,314; no-growth
+  share 56.1% (49.9% to 64.1%); implied growth 10 years at ROIC 74.6%: 6.7% / 9.1% / 11.4% (WACC low / base /
+  high); at ROIC before leases 87.5%: 6.6% / 8.9% / 11.2%; 15 years lead: 5.3% / 7.3% / 9.2%.
+  TITAN: lead EV including leases and gold on loan 468,127; NOPAT 7,279; no-growth share 13.2% (11.9% to
+  14.9%); implied growth 10 years at ROIC 15.6% (lead): 38.2% / 44.9% / 53.4%; including leases 22.5%: 32.4% /
+  36.5% / 40.8%; before leases 24.7%: 31.6% / 35.4% / 39.3%; 15 years lead: 27.9% / 32.6% / 38.5%.
+  M&MFIN: P/B 1.45x; implied lasting ROE 19.1% / 21.1% / 23.2% (g = 0) and 16.7% / 18.7% / 20.8% (g = 5.34%);
+  last 12 months' ROE 13.8%.

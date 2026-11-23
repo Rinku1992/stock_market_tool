@@ -135,7 +135,7 @@ def test_reverse_valuation_by_hand(tmp_path, coc):
     assert "WACC 10.0% to 12.0% (base 11.0%), tax rate 25% (the rate ROIC uses)." in f
     # spread: 21.0 - 11.97 = +9.0; 21.0 - 10.0 = +11.0; base 21.0 - 10.98 = +10.0
     assert "ROIC 21.0% (before leases) against cost of capital 10.0% to 12.0%: spread +9.0 to +11.0 points (base +10.0)." in f
-    assert f.endswith(cc.GROWTH_LINE)
+    assert cc.GROWTH_LINE in f and f.index(cc.GROWTH_LINE) < f.index("What the price assumes")
     order = [f.index(s) for s in ("Cost of equity", "Cost of debt", "Weights", "WACC", "ROIC 21.0%", "Growth adds")]
     assert order == sorted(order)
     ke = (0.098, 0.110, 0.122)
