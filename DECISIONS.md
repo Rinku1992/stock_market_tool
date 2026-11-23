@@ -472,3 +472,48 @@ Newest at the bottom. One entry per choice, with the reason.
   (before leases / including leases / including leases and gold on loan). Gold on loan fell from 16,070 to
   12,278 in six months while current borrowings rose from 11,285 to 24,191: TITAN seems to have moved funding
   from gold loans to bank debt (not verified), so the "before leases" EV already carries more debt.
+
+## Valuation stage C step 1: cost of capital, and ROIC against it (23 Nov 2026)
+
+- **Inputs, owner-entered:** gsec_10y, mature_erp, india_crp, india_default_spread in
+  src/smt/assumptions/cost_of_capital.json, each with value (percent), source, source_date, entered_on.
+  Each `python -m smt.assumptions set` writes a new version; the old file goes to history/ (never
+  overwritten), like desks/weights. Never guessed, never fetched from the web. Shipped empty (kept as
+  history/cost_of_capital_empty.json). Values outside 0.3 to 25 are refused, so 0.0645 typed for 6.45% is caught.
+- **As-of rule:** a run on date D uses the latest version entered on or before D (by entered_on date, then
+  version number). No look-ahead: inputs entered on 23 Nov are not used for a run dated 20 Nov.
+- **Stale limits (by source_date):** G-sec older than 45 days (bond yields move weekly); the three
+  Damodaran inputs older than 400 days (published once a year, updated mid-year). Stale is flagged in the
+  text and the gaps, not refused. A missing input means no cost of capital, with the reason.
+- **Formula:** risk-free = G-sec - India default spread. Cost of equity = risk-free + beta x (mature ERP +
+  India CRP). Cost of debt (before tax) = 12-month finance costs / average debt. WACC = E/(E+D) x cost of
+  equity + D/(E+D) x cost of debt x (1 - tax rate), market value weights. Spread = lead ROIC - WACC.
+- **Why the default spread is taken off:** the Indian government bond yield already holds India's default
+  risk, and the country risk premium holds it too (Damodaran's CRP is built from the default spread). Using
+  the full G-sec yield with the CRP would count it twice. Tested: a test fails if it is not taken off.
+- **Beta rule and its limits:** raw = 1-year beta to Nifty 50 from daily closes (the same function the
+  market_beta analyst stores; reverse_valuation calls it directly because the desks run in parallel and
+  today's stored value may not exist yet). Base = 0.67 x raw + 0.33 (Blume: betas drift towards 1), kept
+  inside 0.6 to 1.5; low and high = base -/+ 0.2. Labelled rough: one year of prices is noisy (R2 on
+  23 Nov: TCS 0.13, TITAN 0.37, M&MFIN 0.26); an industry beta from peers comes later.
+- **Cost of debt rule:** debt = borrowings, plus lease liabilities, plus gold on loan, following the view
+  that leads ROIC in capital_returns (same dates, same rules; valuation.lead_capital repeats its steps and a
+  test checks both give the same ROIC and debt). Average over the ROIC dates. Used only inside 4% to 15%;
+  outside, or debt zero or missing: cost of equity only, no WACC and no spread, with the reason. When the
+  lead view is before leases, the text says finance costs include lease interest that the debt does not.
+- **Weights:** E = market value (share count x latest close, as relative_valuation); D = debt on the latest
+  date. Tax rate = the one ROIC uses.
+- **Lenders:** no WACC (debt is raw material). ROE (as capital_returns) against cost of equity low/base/high.
+- **Analyst reverse_valuation** (equity research, step 1): views neutral, facts only. Added to the desk and so
+  to the call logger: it adds new rows from now on; stored history is not changed; desk weight is 0.
+- **First run, as of 23 Nov 2026** (inputs: G-sec 7.2116% CCIL 6.94% GS 2036, 20 Nov 2026; mature ERP 4.23%,
+  India CRP 2.85%, default spread 1.87%, Damodaran, 5 Jan 2026; risk-free 5.34%; prices to 13 Nov, flagged
+  more than 7 days old):
+  TCS: beta raw 0.75, base 0.83; cost of equity 9.8-12.7% (base 11.2%); cost of debt 12.8% (finance costs
+  1,328 / average debt 10,338, leases only; not verified why finance costs exceed lease interest); weights
+  99/1; WACC 9.8-12.6%; ROIC 74.6%; spread +62.0 to +64.8 points.
+  TITAN: beta raw 1.02, base 1.01; cost of equity 11.1-13.9% (base 12.5%); cost of debt 4.5% (1,521 / 34,066,
+  with leases and gold on loan; near the 4% floor, gold loans are cheap, not verified); weights 92/8; WACC
+  10.4-13.0%; ROIC 15.6%; spread +2.6 to +5.2 points.
+  M&MFIN (lender): beta raw 1.45, base 1.30; cost of equity 13.1-16.0% (base 14.5%); ROE 13.8%; spread -2.2
+  to +0.6 points.

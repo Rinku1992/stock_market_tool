@@ -1,0 +1,32 @@
+{
+  "name": "cost_of_capital",
+  "version": "empty",
+  "entered_on": null,
+  "unit": "percent",
+  "inputs": {
+    "gsec_10y": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    },
+    "mature_erp": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    },
+    "india_crp": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    },
+    "india_default_spread": {
+      "value": null,
+      "source": null,
+      "source_date": null,
+      "entered_on": null
+    }
+  }
+}
