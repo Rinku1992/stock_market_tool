@@ -590,3 +590,32 @@ Newest at the bottom. One entry per choice, with the reason.
 - **Open items:** review veto (task 3), data grade (task 4), kill criteria (sentinel).
 - **First run, 23 Nov 2026:** TCS, TITAN, M&MFIN: no call on every horizon (all weights 0; also price to
   13 Nov, more than 7 days old).
+
+## Stock report: one command, one page (23 Nov 2026)
+
+- **Command:** `python -m smt.report SYMBOL [--as-of YYYY-MM-DD]` (default today, India time). Runs the graph
+  once (no LLM: the desk leads use their template summaries), then writes reports/<SYMBOL>_<as_of>.md and
+  .html and prints the Markdown. reports/ is in .gitignore. The HTML is one self-contained file (inline
+  CSS, no scripts, no outside fonts).
+- **Layout, same order in both files:** 1 header (symbol, stock type, as-of, latest price and its date, data
+  grade, engine commit); 2 verdict per horizon, "No call" first when there is no call, reasons under each;
+  3 key numbers grouped by the five questions (clean numbers, cash, returns, price, what the price
+  assumes); 4 each desk (views, notes, conflicts) then each analyst (finding as written, views); 5 the
+  verdict's full "not checked" list; 6 sources (each evidence item, plus the verified annual report facts
+  current on the as-of date, with dates); 7 footer "Facts and views from code. Not investment advice.
+  Weights version X."
+- **No-recompute rule:** every number in the key numbers table is a feature stored by an analyst in this run
+  (formatted only). Dates and the latest price come from the run's report text. Missing prints "not
+  available" plus the analyst's reason when one matches, never 0 or blank. To print ranges without
+  recomputing, reverse_valuation now also stores the ends it already computed: val_cost_of_equity_low/high,
+  val_roic_spread_low/high, val_roe_spread_low/high, val_implied_roe_low/high. A test checks every table
+  value against its stored feature.
+- **Playbook:** lenders get no leases, gold, R&D, free cash flow, cash conversion, accruals, ROIC, WACC, EV,
+  EV/EBITDA, FCF yield, no-growth share or implied growth rows; they get ROE, return on assets, credit cost,
+  cost of equity, ROE spread, P/B and implied ROE. Real estate adds EBIT excluding other income and the
+  "lumpy profit" note. Gold on loan rows appear only for a stock with gold on loan facts or text.
+- **Banned words:** buy, sell, target, fair value, recommend (whole words, any case). The page is checked
+  before writing; a hit stops the write. To pass, the step 2 label changed from "not a forecast or a fair
+  value" to "not a forecast and not an estimate of what the stock is worth".
+- **Display rounding:** multiples print with one decimal (P/B 1.5x on the page; the reverse valuation text
+  prints the P/B it uses as 1.45x). Same stored number.
