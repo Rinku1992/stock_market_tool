@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Scoring engine built: no call until desks prove an edge", "Desk views become a verdict per horizon only through weights from measured edge (a versioned file, all 0 today) and fixed thresholds. Today every stock gets 'no call', with the reason and a list of what was not checked."],
-  next: ["Review veto, then the data grade", "Open items logged: review unit veto (task 3), data grade (task 4), kill criteria (sentinel)."],
+  now: ["Stock report built", "python -m smt.report TITAN writes one page (Markdown and HTML in reports/) from one engine run: verdict, key numbers by the five questions, every desk and analyst, what was not checked, sources. No new maths; missing shows as 'not available'."],
+  next: ["Review veto, then the data grade", "Open items: review unit veto (task 3), data grade (task 4), kill criteria (sentinel). Year-on-year comparison needs 8 quarters (5 loaded)."],
   you: ["Record each trading day, plus one bank file; G-sec yield every 45 days", "Keep the G-sec input fresh (python -m smt.assumptions set gsec_10y ...); it is flagged stale after 45 days. After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["23 Nov", "Stock report built: one command, one page per stock (Markdown and self-contained HTML, not in git). Numbers only from stored features of that run; analysts' labels kept; banned words checked before writing. First pages: TCS, TITAN, M&MFIN."],
   ["23 Nov", "Scoring engine replaces the always-no-call stub: weighted desk views against fixed thresholds (versioned file verdict.json, all weights 0). Stale price or a missing weighted desk blocks a call. Every verdict lists its reasons and what was not checked."],
   ["23 Nov", "What the price assumes (reverse valuation step 2): share of EV explained by today's profit with no growth; growth a year the price needs over 10 and 15 years (new capital earns only the cost of capital after that); lenders: lasting ROE from P/B. Never a forecast or fair value."],
   ["23 Nov", "Cost of capital built (reverse valuation step 1): your four inputs, versioned, used only from the day entered; risk-free = G-sec minus default spread (not counted twice); Blume beta from 1 year of prices (rough); cost of debt only inside 4-15%; WACC and spread to the lead ROIC."],
@@ -290,7 +291,7 @@ const UNITS = [
 ];
 const TOOLS = [
   ["Kite Connect: prices and holdings", 1], ["Data contract and lake", 1], ["Backtest engine", 1],
-  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 1], ["Scoring engine", 2], ["Results file reader (NSE XBRL)", 1], ["Bulk fundamentals source", 0], ["News source", 0]
+  ["Nifty 100 member list", 1], ["Desk lead framework", 1], ["Calibration (learning loop)", 1], ["Scoring engine", 2], ["Stock report (one page per stock)", 1], ["Results file reader (NSE XBRL)", 1], ["Bulk fundamentals source", 0], ["News source", 0]
 ];
 const TYPE = { C: ["Code", ""], L: ["LLM", "llm"], B: ["Both", "both"] };
 

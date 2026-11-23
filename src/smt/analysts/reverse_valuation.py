@@ -34,7 +34,7 @@ from smt.schema import AnalystReport
 AID = "reverse_valuation"
 G_MIN, G_MAX = -0.10, 0.60
 YEARS, YEARS_LONG = 10, 15
-NOT_FORECAST = "not a forecast or a fair value"
+NOT_FORECAST = "not a forecast and not an estimate of what the stock is worth"
 NO_G_HIGH = "no growth rate up to 60% a year explains the price under these assumptions"
 NO_G_LOW = "even a fall in profit of 10% a year gives a value above the price under these assumptions"
 RF_GROWTH = "long-run growth assumed equal to the risk-free rate"
@@ -168,7 +168,7 @@ def _step1(ctx, b, parts, gaps, feats) -> Step1 | None:
         f"{beta.high:.2f}) = 0.67 x raw 1-year beta to Nifty 50 {beta.raw:.2f} (daily closes to {bars[-1].d}) + 0.33 "
         f"(Blume), kept inside {cc.BETA_MIN} to {cc.BETA_MAX}" + (" (limit applied)" if beta.clamped else "")
         + f"; {cc.BETA_LABEL}.")
-    feats["val_cost_of_equity"] = ke[1]
+    feats.update({"val_cost_of_equity": ke[1], "val_cost_of_equity_low": ke[0], "val_cost_of_equity_high": ke[2]})
     s1 = Step1(ke=ke, rf=rf)
 
     if b.st.label == LENDER:
@@ -181,7 +181,7 @@ def _step1(ctx, b, parts, gaps, feats) -> Step1 | None:
             parts.append(f"ROE {_p(roe)} (12 months to {end}) against cost of equity {_p(ke[0])} to {_p(ke[2])}: "
                          f"spread {_pts(lo)} to {_pts(hi)} points (base {_pts(roe - ke[1])}).")
             parts.append("Growth adds value only when ROE is above the cost of equity.")
-            feats["val_roe_spread"] = roe - ke[1]
+            feats.update({"val_roe_spread": roe - ke[1], "val_roe_spread_low": lo, "val_roe_spread_high": hi})
         return s1
 
     lead, lwhy = lead_capital(ctx, b)
@@ -222,7 +222,8 @@ def _step1(ctx, b, parts, gaps, feats) -> Step1 | None:
     parts.append(f"ROIC {_p(lead.roic)} ({lead.view}) against cost of capital {_p(w[0])} to {_p(w[2])}: spread "
                  f"{_pts(lo)} to {_pts(hi)} points (base {_pts(lead.roic - w[1])}).")
     parts.append(cc.GROWTH_LINE)
-    feats.update({"val_wacc": w[1], "val_wacc_low": w[0], "val_wacc_high": w[2], "val_roic_spread": lead.roic - w[1]})
+    feats.update({"val_wacc": w[1], "val_wacc_low": w[0], "val_wacc_high": w[2], "val_roic_spread": lead.roic - w[1],
+                  "val_roic_spread_low": lo, "val_roic_spread_high": hi})
     return s1
 
 
@@ -342,7 +343,7 @@ def _step2_lender(ctx, b, s1: Step1, parts, gaps, feats) -> None:
         vals += r
         cases.append(f"{label}: {_p(r[0])} / {_p(r[1])} / {_p(r[2])}")
         if g == s1.rf:
-            feats["val_implied_roe"] = r[1]
+            feats.update({"val_implied_roe": r[1], "val_implied_roe_low": r[0], "val_implied_roe_high": r[2]})
     parts.append(f"What the price assumes ({NOT_FORECAST}): P/B {pb:.2f}x ({mcap.text[0].lower() + mcap.text[1:]}; owners' "
                  f"equity {_cr(eq)} on {end}). Lasting ROE = growth + P/B x (cost of equity - growth), for cost of equity "
                  f"{_p(s1.ke[0])} / {_p(s1.ke[1])} / {_p(s1.ke[2])}: " + "; ".join(cases) + ".")

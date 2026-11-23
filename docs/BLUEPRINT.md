@@ -119,7 +119,7 @@ sentinel (C), depth controller (C)
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |
 | 5. Review + verdict | Review unit, three horizon committees | One full verdict page | |
 | 6. Zerodha | Holdings pull, portfolio desk, sentinel | Holdings show hold/add/trim/exit | |
-| 7. App | Web UI | Type a name, get the report | |
+| 7. App | Web UI | Type a name, get the report | First step built 23 Nov 2026: `python -m smt.report SYMBOL` writes one page per stock (reports/, Markdown and HTML, not in git) from one engine run. No web UI yet |
 
 ## Defaults in use
 
