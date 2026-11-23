@@ -80,7 +80,7 @@ def test_price_assumes_no_growth_when_share_is_100_or_more(tmp_path, coc):
             "crore - cash, bank balances and current investments Rs 400 crore on 2025-09-30); NOPAT Rs 630 crore") in f
     assert (f"Today's profit with no growth explains {share[1]:.1%} of the enterprise value ({share[2]:.1%} to "
             f"{share[0]:.1%}). The price assumes no growth, or a fall in profit.") in f
-    assert "not a forecast or a fair value" in f
+    assert "not a forecast and not an estimate of what the stock is worth" in f
     assert feat(ctx, "val_no_growth_share") == pytest.approx(share[1])
     assert "below -10% / below -10% / below -10%" in f and "even a fall in profit of 10% a year" in f
     assert feat(ctx, "val_implied_growth_10y") is None
