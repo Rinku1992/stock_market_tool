@@ -578,6 +578,7 @@ class LeadCapital:
     dates: list[date]  # [closing] or [closing, a year earlier]
     debt: list[float]  # per date: borrowings (+ lease liabilities) (+ gold on loan), as the view
     debt_text: str
+    views: dict[str, float] = field(default_factory=dict)  # ROIC of every view the stock has, lead first
 
 
 def lead_capital(ctx: AnalystContext, b: Base) -> tuple[LeadCapital | None, str | None]:
@@ -600,6 +601,8 @@ def lead_capital(ctx: AnalystContext, b: Base) -> tuple[LeadCapital | None, str 
     borrow = [sum(b.fin.get(d, "I", k) for k in ("borrowings_noncurrent", "borrowings_current")) for d in dates]
     avg = lambda xs: sum(xs) / len(xs)
     view, ic, debt = VIEW_BEFORE, avg(ics), borrow
+    nopat = ebit * (1 - t)
+    views = {VIEW_BEFORE: nopat / ic} if ic > 0 else {}
     text = "borrowings " + " and ".join(f"{_cr(x)} on {d}" for x, d in zip(borrow, dates))
     facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
     leases, _ = _lease_figures(b, facts, dates)
@@ -607,6 +610,7 @@ def lead_capital(ctx: AnalystContext, b: Base) -> tuple[LeadCapital | None, str 
         ic_l = avg([i + x.value for i, x in zip(ics, leases)])
         if ic_l > 0:
             view, ic = VIEW_LEASES, ic_l
+            views[VIEW_LEASES] = nopat / ic_l
             debt = [d + x.value for d, x in zip(borrow, leases)]
             text += "; " + adj.lease_text(*leases)
             gold = adj.gold_on(adj.gold_series(facts), dates)[0] if adj.has_gold_rows(facts) else None
@@ -614,11 +618,13 @@ def lead_capital(ctx: AnalystContext, b: Base) -> tuple[LeadCapital | None, str 
                 ic_g = avg([i + x.value + g for i, x, g in zip(ics, leases, gold)])
                 if ic_g > 0:
                     view, ic = VIEW_GOLD, ic_g
+                    views[VIEW_GOLD] = nopat / ic_g
                     debt = [d + g for d, g in zip(debt, gold)]
                     text += "; " + adj.gold_text(adj.gold_series(facts), dates)
     if ic <= 0:
         return None, f"invested capital is {_cr(ic)}, not positive"
-    return LeadCapital(view, ebit * (1 - t) / ic, ebit, t, end, dates, debt, text), None
+    views = {k: views[k] for k in (view, VIEW_GOLD, VIEW_LEASES, VIEW_BEFORE) if k in views}
+    return LeadCapital(view, nopat / ic, ebit, t, end, dates, debt, text, views), None
 
 
 def roe_inputs(b: Base) -> tuple[float | None, date | None]:

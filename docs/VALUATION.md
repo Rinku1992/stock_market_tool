@@ -59,6 +59,17 @@ never does maths. Rules here are fixed before they are run on outcomes (see DECI
 - WACC at market value weights (debt on the latest date), tax rate as ROIC. Spread = lead ROIC - WACC.
   Lenders: no WACC; ROE against cost of equity.
 
+## What the price assumes (stage C step 2)
+
+Never a forecast, a fair value or a verdict. Lead view of capital_returns; WACC low/base/high from step 1.
+- No-growth share = (NOPAT0 / WACC) / lead EV, NOPAT0 = 12-month EBIT x (1 - tax rate).
+- Implied growth: NOPAT grows at g for N years (10; lead also 15); reinvestment = NOPAT x g / R, free cash
+  flow = NOPAT x (1 - g / R); terminal value at N = NOPAT(N+1) / WACC (new capital then earns only the cost of
+  capital, so no terminal growth input). Solved for value = lead EV, g from -10% to +60%; none in range:
+  said, no number. R = lead ROIC, and each other ROIC view; R <= WACC: growth adds no value, not solved.
+- Lenders: implied lasting ROE = g + P/B x (cost of equity - g), for g = 0 and g = risk-free.
+- Flags: real estate (lumpy profit, not reliable); EBIT <= 0 (not computed); price more than 7 days old.
+
 ## Sector rules
 
 | Type | Router rule | What changes |
@@ -76,5 +87,5 @@ Banks, insurers and holding companies get their own rules later.
 |---|---|---|
 | A | earnings power, capital returns, relative valuation; lender and real estate rules; split, basis and loss traps | Built 13 Nov 2026 |
 | B | accounting adjustments: clean-up of exceptional and one-off items, lease liabilities and R&D from annual reports | Leases and R&D built 20 Nov 2026 (facts extracted and reviewed for TCS, TITAN); gold on loan and R&D materiality built 20 Nov 2026; one-off items planned |
-| C | reverse valuation: growth and returns the price implies; multiples against own history and peers | Step 1 built 23 Nov 2026: cost of capital (owner-entered inputs) and ROIC against it; implied growth and multiples against history and peers planned |
+| C | reverse valuation: growth and returns the price implies; multiples against own history and peers | Step 1 built 23 Nov 2026: cost of capital (owner-entered inputs) and ROIC against it. Step 2 built 23 Nov 2026: no-growth share, implied growth (10 and 15 years), lenders' implied ROE. Multiples against history and peers planned |
 | D | value range and margin of safety; first directional views, only after a backtest | Planned |

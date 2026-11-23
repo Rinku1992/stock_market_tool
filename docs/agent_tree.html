@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Cost of capital and ROIC against it", "Reverse valuation step 1. As of 23 Nov: TCS ROIC 74.6% vs WACC 9.8-12.6%; TITAN 15.6% vs 10.4-13.0% (spread +2.6 to +5.2 points); M&MFIN ROE 13.8% vs cost of equity 13.1-16.0% (spread -2.2 to +0.6)."],
-  next: ["Reverse valuation step 2: what growth the price implies", "Or one-off items (accounting adjustments). Industry beta needs peers."],
+  now: ["What the price assumes", "As of 23 Nov: TCS no-growth share 56%, growth needed 9.1% a year for 10 years (base). TITAN 13%, 44.9% a year at its lead ROIC 15.6%. M&MFIN: lasting ROE needed 16.7-23.2% against 13.8% last 12 months. Not forecasts."],
+  next: ["Load 8 quarters for the comparison, then one-off items or multiples against history", "Year-on-year growth needs 8 quarters of results (5 loaded). Peers and an industry beta come later."],
   you: ["Record each trading day, plus one bank file; G-sec yield every 45 days", "Keep the G-sec input fresh (python -m smt.assumptions set gsec_10y ...); it is flagged stale after 45 days. After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["23 Nov", "What the price assumes (reverse valuation step 2): share of EV explained by today's profit with no growth; growth a year the price needs over 10 and 15 years (new capital earns only the cost of capital after that); lenders: lasting ROE from P/B. Never a forecast or fair value."],
   ["23 Nov", "Cost of capital built (reverse valuation step 1): your four inputs, versioned, used only from the day entered; risk-free = G-sec minus default spread (not counted twice); Blume beta from 1 year of prices (rough); cost of debt only inside 4-15%; WACC and spread to the lead ROIC."],
   ["21 Nov", "TITAN September results PDFs checked by code: gold on loan 12,278 (Sep 2026) and 16,088 (Sep 2025) is separate from borrowings, which match the lake. Four gold rows added by you. ROIC with leases and gold on loan 15.6%."],
   ["20 Nov", "Gold on loan added as a debt-like item for jewellers (exact date rule; checks: not inside borrowings in March 2026, interest inside finance costs). R&D under 1% of revenue now gets one short 'not material' line."],
@@ -238,7 +239,7 @@ const UNITS = [
     ["Earnings power", "C", "12-month profit, core profit, free cash flow, owner earnings, cash conversion, accruals. Views neutral.", 2],
     ["Capital returns (ROIC)", "C", "ROE and ROIC with the formula shown; ROIC including leases (and gold on loan for jewellers, same date only) leads when verified figures exist, and a rough ROIC with R&D capitalised (one line when under 1% of revenue); lenders: ROE, return on assets, credit cost. Views neutral.", 2],
     ["Relative valuation", "C", "P/E, P/B, dividend yield, EV/EBITDA, EV/Sales, FCF yield; EV including leases (and gold on loan for jewellers, same date only) leads when verified figures exist. P/B leads for lenders and real estate. Views neutral; history and peers later.", 2],
-    ["Reverse valuation", "C", "Works out what growth today's price already assumes (valuation stage C). Step 1 built: cost of capital from your four inputs (G-sec, Damodaran ERP, India risk premium, default spread) with a rough 1-year beta, and ROIC against it (lenders: ROE against cost of equity). Implied growth to come.", 2],
+    ["Reverse valuation", "C", "Works out what growth today's price already assumes (valuation stage C). Step 1 built: cost of capital from your four inputs (G-sec, Damodaran ERP, India risk premium, default spread) with a rough 1-year beta, and ROIC against it (lenders: ROE against cost of equity). Step 2 built: what the price assumes (share explained by today's profit with no growth, growth a year the price needs over 10 and 15 years; lenders: the lasting ROE the price needs). Multiples against history and peers to come.", 2],
     ["Value range", "C", "Low, base and high value with a margin of safety (valuation stage D)."],
     ["Credit", "B", "Rating changes, debt due dates, interest cover."],
     ["Legal and regulatory", "B", "SEBI orders, tax demands, court cases."] ] },
