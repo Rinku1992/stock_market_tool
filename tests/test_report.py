@@ -9,8 +9,8 @@ from smt.graph import run
 from smt.report import BANNED, FMT, FOOTER, NA, build_page, check_words, to_html, to_markdown, write
 from smt.store import FeatureStore
 
-SECTIONS = ["## 1. Header", "## 2. Verdict", "## 3. Key numbers", "## 4. Desks and analysts", "## 5. Not checked",
-            "## 6. Sources"]
+SECTIONS = ["## 1. Header", "## 2. Verdict", "## 3. Checks", "## 4. Key numbers", "## 5. Desks and analysts",
+            "## 6. Not checked", "## 7. Sources"]
 
 
 def page_for(tmp_path, **kw):

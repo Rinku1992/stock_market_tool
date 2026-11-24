@@ -2,7 +2,7 @@
 
 Fixed path, fixed branches. No LLM decides which analyst runs next.
 
-    data office -> (grade C: refuse) -> router -> desks in parallel -> review -> verdict
+    data office -> (grade C: refuse) -> router -> desks in parallel -> review (code checks) -> verdict
 
 Each desk runs its analysts, then its desk lead turns their reports into one DeskReport.
 """
@@ -21,6 +21,7 @@ from smt.desks.lead import lead_report
 from smt.llm import LLMClient
 from smt.router import stock_type_router
 from smt.schema import AnalystReport, DataGrade, DeskReport, Verdict
+from smt.review import Review, run_review
 from smt.scoring import price_problem, score
 from smt.store import FeatureStore
 
@@ -34,6 +35,7 @@ class RunState(TypedDict, total=False):
     stock_type: str
     reports: Annotated[list[AnalystReport], operator.add]
     desk_reports: Annotated[list[DeskReport], operator.add]
+    review: Review
     verdict: Verdict
 
 
@@ -98,12 +100,14 @@ def build_graph(
         return desk
 
     def review(state: RunState) -> dict:
-        return {}  # placeholder until the independent review unit is built (phase 5)
+        return {"review": run_review(state, lake, store)}  # code part; LLM reviewers come later
 
     def verdict(state: RunState) -> dict:
         why = price_problem(lake, state.get("instrument_id"), state["as_of"])
+        rv = state.get("review")
+        desk_reports = rv.desk_reports if rv is not None else state.get("desk_reports", [])
         return {"verdict": score(state["symbol"], state["as_of"], state["data_grade"], state.get("stock_type"),
-                                 state.get("desk_reports", []), list(desks), why)}
+                                 desk_reports, list(desks), why, review=rv)}
 
     g = StateGraph(RunState)
     g.add_node("data_office", data_office)

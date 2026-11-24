@@ -106,12 +106,12 @@ def _general_trend(ctx: AnalystContext, rows: list[dict], basis: str, q: date) -
         b = bs_dates[-1]
         eq = _pick(rows, b, "I", "equity")
         found = [v for k in ("borrowings_noncurrent", "borrowings_current") if (v := _pick(rows, b, "I", k)) is not None]
-        cash = sum(_pick(rows, b, "I", k) or 0.0 for k in ("cash", "current_investments"))
         if found:
             debt = sum(found)
-            parts.append(f"Balance sheet on {b}: borrowings {_crore(debt)}, cash and current investments {_crore(cash)}, "
-                         f"net debt {_crore(debt - cash)}, debt to equity {debt / eq:.2f}.")
-            features.update({"fin_debt_to_equity": debt / eq, "fin_net_debt": debt - cash})
+            # old features, old definition (cash + current investments), kept so stored history keeps its meaning
+            old_cash = sum(_pick(rows, b, "I", k) or 0.0 for k in ("cash", "current_investments"))
+            features.update({"fin_debt_to_equity": debt / eq, "fin_net_debt": debt - old_cash})
+            parts.append(_debt_line(ctx, rows, basis, b, debt, eq, features, gaps))
         else:
             # a missing tag is not zero debt: lenders and banks file borrowings under other names
             parts.append(f"Balance sheet on {b}: borrowings not found under the usual names, so debt is not reported.")
@@ -144,6 +144,44 @@ def _general_trend(ctx: AnalystContext, rows: list[dict], basis: str, q: date) -
     ev = [Evidence(id=f"financials:{ctx.instrument_id}:{q}", source_type="filing",
                    ref=f"financials/{ctx.instrument_id}/{q}", as_of=min(known, ctx.as_of))]
     return _report(ctx, " ".join(parts), ev, gaps)
+
+
+def _debt_line(ctx, rows, basis, b: date, debt: float, eq: float, features: dict, gaps: list) -> str:
+    """Debt and cash with the valuation analysts' definitions: cash = cash, bank balances and current investments;
+    net debt and debt to equity before leases, and including leases (and gold on loan) with capital_returns'
+    rules for the same balance sheet date."""
+    from smt.analysts import adjustments as adj
+    from smt.analysts.valuation import CASH_LABEL, Base, Fin, _cash, _lease_figures
+
+    fin = Fin(rows, basis)
+    cash, cash_missing = _cash(fin, b)
+    if cash is None:
+        gaps.append(f"net debt: cash not filed on {b}")
+        return f"Balance sheet on {b}: borrowings {_crore(debt)}; cash not filed, so net debt is not reported."
+    for m in cash_missing:
+        gaps.append(f"net debt: {m} on {b} not filed; left out of cash")
+    nd = debt - cash
+    features.update({"fin_net_debt_before_leases": nd, "fin_debt_to_equity_before_leases": debt / eq})
+    line = (f"Balance sheet on {b}: borrowings {_crore(debt)}, {CASH_LABEL} {_crore(cash)}. Before leases: net debt "
+            f"{_crore(nd)}, debt to equity {debt / eq:.2f}")
+    facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
+    st = stock_type_for(ctx.lake, ctx.instrument_id, ctx.as_of)
+    quarters = sorted({r["period_end"] for r in rows if r["period_type"] == "Q" and r["line_item"] == "revenue"})
+    leases, why = _lease_figures(Base(fin, st, quarters[-1], []), facts, [b])
+    if not leases:
+        if adj.lease_totals(facts) or adj.has_gold_rows(facts):
+            gaps.append(f"net debt including leases: {why}")
+        return line + "."
+    extra, view, key = leases[0].value, "including leases", "incl_leases"
+    detail = adj.lease_text(*leases)
+    gold, _ = adj.gold_on(adj.gold_series(facts), [b]) if adj.has_gold_rows(facts) else (None, None)
+    if gold:
+        extra += gold[0]
+        view, key = "including leases and gold on loan", "incl_leases_gold"
+        detail += "; " + adj.gold_text(adj.gold_series(facts), [b])
+    features.update({f"fin_net_debt_{key}": nd + extra, f"fin_debt_to_equity_{key}": (debt + extra) / eq})
+    return line + (f". {view[0].upper() + view[1:]}: net debt {_crore(nd + extra)}, debt to equity "
+                   f"{(debt + extra) / eq:.2f} ({detail}).")
 
 
 LENDER_DEBT = [  # (canonical item, the filing's own name)

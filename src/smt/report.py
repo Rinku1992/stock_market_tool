@@ -9,8 +9,9 @@ analyst gave one), never 0 and never blank. Analysts' labels ("rough", "not veri
 stale flags) are kept because their text is printed as written. Banned words never appear: the page is
 checked before it is written.
 
-Layout (both files): header, verdict, key numbers (the five questions of docs/VALUATION.md), desks and
-analysts, not checked, sources, footer.
+Layout (both files): header, verdict, checks (review veto, re-checker and evidence auditor, analysts' "Check:"
+lines, stale or missing data), key numbers (the five questions of docs/VALUATION.md), desks and analysts, not
+checked, sources, footer.
 """
 
 import argparse
@@ -29,6 +30,10 @@ NA = "not available"
 BANNED = re.compile(r"\bbuy\b|\bsell\b|\btarget|\bfair value\b|\brecommend", re.I)
 FOOTER = "Facts and views from code. Not investment advice. Weights version {}."
 GROUPS = ["Clean numbers", "Cash", "Returns", "Price", "What the price assumes"]
+CHECK_PARTS = [("Review veto", "veto"), ("Re-checker and evidence auditor (fails first)", "results"),
+               ("Checks written by analysts", "analysts"), ("Stale or missing data", "flags")]
+NO_SOURCE = "no valid source"
+NA_LI = "<li class='na'>"
 _DATE = r"(\d{4}-\d{2}-\d{2})"
 
 
@@ -70,6 +75,8 @@ class Page:
     sources: list[str]
     footer: str
     notes: dict[str, list[str]] = field(default_factory=dict)  # group -> notes copied from analyst text
+    checks: dict[str, list[str]] = field(default_factory=dict)  # Checks section: veto, results, analyst checks, flags
+    set_aside: dict[str, str] = field(default_factory=dict)  # analyst id -> why (no valid source)
 
 
 # ---------------------------------------------------------------- building the page from one run
@@ -251,8 +258,23 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
     for f in facts or []:
         sources.append(f"annual report fact: {f['item']} {_cr(f['value'])} for {f['fiscal_year_end']}, page {f['page']}, "
                        f"published {f['published_at']:%Y-%m-%d}" + (f", {f['extractor']}" if f.get("extractor") else ""))
+    rvw = state.get("review")
+    checks = {"veto": [], "results": [], "analysts": [], "flags": []}
+    first = v.horizons[0].reasons[0] if v.horizons and v.horizons[0].reasons else ""
+    if first.startswith("review veto:"):
+        checks["veto"].append(first)
+    if rvw is not None:
+        checks["results"] = [f"{c.status.upper()}: {c.text}" for c in rvw.lines()]
+    for r in state.get("reports", []):
+        for m in re.finditer(r"Check: [^.]*\.", r.finding):
+            checks["analysts"].append(f"{r.analyst_id}: {m.group(0)}")
+    flag = re.compile(r"stale|more than \d+ days|not loaded|not filed|missing|not found|no price", re.I)
+    for g in dict.fromkeys(g for r in state.get("reports", []) for g in r.could_not_check):
+        if flag.search(g):
+            checks["flags"].append(g)
     return Page(state["symbol"], as_of, header, verdict, rows, desks, list(v.not_checked) or ["nothing listed"],
-                sources or ["none"], FOOTER.format(v.weights_version or "none"), notes)
+                sources or ["none"], FOOTER.format(v.weights_version or "none"), notes, checks,
+                dict(rvw.set_aside) if rvw is not None else {})
 
 
 # ---------------------------------------------------------------- rendering
@@ -271,7 +293,13 @@ def to_markdown(p: Page) -> str:
         out.append(f"**{h}:** {head}")
         out += [f"- {r}" for r in reasons]
         out.append("")
-    out += ["## 3. Key numbers", ""]
+    out += ["## 3. Checks", ""]
+    for title, key in CHECK_PARTS:
+        items = p.checks.get(key, [])
+        if key == "veto" and not items:
+            items = ["no review veto"]
+        out += [f"**{title}**", ""] + ([f"- {x}" for x in items] or ["- none"]) + [""]
+    out += ["## 4. Key numbers", ""]
     for g in GROUPS:
         rows = [r for r in p.rows if r.group == g]
         out += [f"### {g}", ""]
@@ -282,16 +310,17 @@ def to_markdown(p: Page) -> str:
             out.append("None for this stock type.")
         out += [f"\n_{n}_" for n in p.notes.get(g, [])]
         out.append("")
-    out += ["## 4. Desks and analysts", ""]
+    out += ["## 5. Desks and analysts", ""]
     for d in p.desks:
         out += [f"### Desk: {d['unit']}", "", f"Desk views: {_views(d['views'])}", ""] + [f"- {n}" for n in d["notes"]]
         out.append("")
         for c in d["conflicts"]:
             out.append(f"- Conflict ({c.horizon.value}): positive {', '.join(c.positive)}; negative {', '.join(c.negative)}")
         for a in d["analysts"]:
-            out += [f"#### {a.analyst_id}", "", a.finding, "", f"Views: {_views(a.views)}", ""]
-    out += ["## 5. Not checked", ""] + [f"- {x}" for x in p.not_checked]
-    out += ["", "## 6. Sources", ""] + [f"- {x}" for x in p.sources]
+            mark = f" ({NO_SOURCE}: {p.set_aside[a.analyst_id]}; views set aside)" if a.analyst_id in p.set_aside else ""
+            out += [f"#### {a.analyst_id}{mark}", "", a.finding, "", f"Views: {_views(a.views)}", ""]
+    out += ["## 6. Not checked", ""] + [f"- {x}" for x in p.not_checked]
+    out += ["", "## 7. Sources", ""] + [f"- {x}" for x in p.sources]
     out += ["", "---", "", p.footer, ""]
     return "\n".join(out)
 
@@ -314,7 +343,14 @@ def to_html(p: Page) -> str:
     out += ["</table>", "<h2>2. Verdict</h2>"]
     for h, head, reasons in p.verdict:
         out.append(f"<p class='call'>{e(h)}: {e(head)}</p><ul>" + "".join(f"<li>{e(r)}</li>" for r in reasons) + "</ul>")
-    out.append("<h2>3. Key numbers</h2>")
+    out.append("<h2>3. Checks</h2>")
+    for title, key in CHECK_PARTS:
+        items = p.checks.get(key, [])
+        if key == "veto" and not items:
+            items = ["no review veto"]
+        lis = "".join((NA_LI if x.startswith(("FAIL", "review veto")) else "<li>") + e(x) + "</li>" for x in items)
+        out.append(f"<h3>{e(title)}</h3><ul>" + (lis or "<li>none</li>") + "</ul>")
+    out.append("<h2>4. Key numbers</h2>")
     for g in GROUPS:
         rows = [r for r in p.rows if r.group == g]
         out.append(f"<h3>{e(g)}</h3>")
@@ -327,7 +363,7 @@ def to_html(p: Page) -> str:
         else:
             out.append("<p class='muted'>None for this stock type.</p>")
         out += [f"<p class='muted'><em>{e(n)}</em></p>" for n in p.notes.get(g, [])]
-    out.append("<h2>4. Desks and analysts</h2>")
+    out.append("<h2>5. Desks and analysts</h2>")
     for d in p.desks:
         out += [f"<h3>Desk: {e(d['unit'])}</h3>", f"<p>Desk views: {e(_views(d['views']))}</p>"]
         out += [f"<p class='muted'>{e(n)}</p>" for n in d["notes"]]
@@ -335,10 +371,11 @@ def to_html(p: Page) -> str:
             out.append(f"<p>Conflict ({e(c.horizon.value)}): positive {e(', '.join(c.positive))}; negative "
                        f"{e(', '.join(c.negative))}</p>")
         for a in d["analysts"]:
-            out += [f"<h4>{e(a.analyst_id)}</h4>", f"<p class='finding'>{e(a.finding)}</p>",
+            mark = f" ({NO_SOURCE}: {p.set_aside[a.analyst_id]}; views set aside)" if a.analyst_id in p.set_aside else ""
+            out += [f"<h4>{e(a.analyst_id + mark)}</h4>", f"<p class='finding'>{e(a.finding)}</p>",
                     f"<p class='muted'>Views: {e(_views(a.views))}</p>"]
-    out += ["<h2>5. Not checked</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_checked] + ["</ul>"]
-    out += ["<h2>6. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
+    out += ["<h2>6. Not checked</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_checked] + ["</ul>"]
+    out += ["<h2>7. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
     out += [f"<hr><p class='muted'>{e(p.footer)}</p></body></html>"]
     return "\n".join(out)
 

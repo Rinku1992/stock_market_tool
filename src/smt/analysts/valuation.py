@@ -750,7 +750,7 @@ def relative_valuation(ctx: AnalystContext) -> AnalystReport:
             if rev:
                 s += f", EV/Sales {_x(ev / rev)}"
                 feats["val_ev_sales"] = ev / rev
-            feats["val_ev"] = ev
+            feats.update({"val_ev": ev, "val_borrowings": sum(debt), "val_cash": cash, "val_revenue_ttm": rev})
             facts = adj.facts_asof(ctx.lake, ctx.instrument_id, ctx.as_of)
             leases, why = _lease_figures(b, facts, [end])
             if leases:

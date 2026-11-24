@@ -105,4 +105,4 @@ def test_graph_run_gives_no_call_with_reasons():
     assert all("every verdict weight is 0" in h.reasons[0] for h in v.horizons)
     assert all("price: no stored price for this stock" in h.reasons for h in v.horizons)
     assert v.weights_version == load_weights("verdict")["version"]
-    assert "review unit not built: no review veto applied" in v.not_checked
+    assert "review: LLM reviewers not built" in v.not_checked
