@@ -106,7 +106,7 @@ sentinel (C), depth controller (C)
 | 0. Foundation | Schema, feature store, LLM wrapper, graph skeleton | Dummy run gives a valid verdict | Done |
 | 1a. Data contract | Vendor-free schemas, validation gate, raw + Parquet storage, adapter interface (see DATA_CONTRACT.md) | A fake vendor loads end to end | Done |
 | 1b. Kite adapter | Login, daily prices, holdings | Runs on live data for 5 stocks | Prices run live for RELIANCE. Holdings not yet run live |
-| 1c. Data office | Fundamentals adapter, corporate action fix, reconciler, data grade | 5 test stocks load with a grade | Needs a fundamentals vendor |
+| 1c. Data office | Fundamentals adapter, corporate action fix, reconciler, data grade | 5 test stocks load with a grade | Part 1 built 24 Nov 2026 (`smt.data_office`): freshness clerk and coverage grader (price grade, fundamentals grade, overall); replaces the placeholder grade. Fundamentals vendor, corporate action fix and reconciler still to come |
 | 2a. Price analysts | Price structure, liquidity, market beta (rules not backtested, confidence capped) | Reports for RELIANCE on live data | Built, awaiting live run |
 | 2c. Momentum factor | Risk-adjusted 12-1 momentum, ranked across loaded stocks, terciles | Backtest on holdings | Built, awaiting live run |
 | 2d. Desk lead | DeskReport schema, weighted combine from versioned weights, LLM summary checked by code | Market activity desk returns a DeskReport | Built |
