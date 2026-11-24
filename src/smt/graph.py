@@ -21,6 +21,7 @@ from smt.desks.lead import lead_report
 from smt.llm import LLMClient
 from smt.router import stock_type_router
 from smt.schema import AnalystReport, DataGrade, DeskReport, Verdict
+from smt.data_office import Grades, office
 from smt.review import Review, run_review
 from smt.scoring import price_problem, score
 from smt.store import FeatureStore
@@ -32,6 +33,7 @@ class RunState(TypedDict, total=False):
     instrument_id: str | None
     as_of: date
     data_grade: DataGrade
+    grades: Grades
     stock_type: str
     reports: Annotated[list[AnalystReport], operator.add]
     desk_reports: Annotated[list[DeskReport], operator.add]
@@ -39,12 +41,12 @@ class RunState(TypedDict, total=False):
     verdict: Verdict
 
 
-GradeFn = Callable[[AnalystContext], DataGrade]
+GradeFn = Callable[[AnalystContext], "DataGrade | Grades"]
 RouterFn = Callable[[AnalystContext], str]
 
 
-def _default_grade(ctx: AnalystContext) -> DataGrade:
-    return DataGrade.B  # placeholder until the data office is built (phase 1)
+def _default_grade(ctx: AnalystContext) -> Grades:
+    return office(ctx.lake, ctx.instrument_id, ctx.as_of)
 
 
 def build_graph(
@@ -69,7 +71,10 @@ def build_graph(
         )
 
     def data_office(state: RunState) -> dict:
-        return {"data_grade": grade_fn(ctx_of(state))}
+        g = grade_fn(ctx_of(state))
+        if isinstance(g, DataGrade):  # a plain grade (tests): no table, no reasons
+            g = Grades(g, g, g, [f"grade {g.value} given directly"])
+        return {"data_grade": g.overall, "grades": g}
 
     def after_data_office(state: RunState) -> str:
         return "refuse" if state["data_grade"] == DataGrade.C else "router"
@@ -80,7 +85,11 @@ def build_graph(
                 symbol=state["symbol"],
                 as_of=state["as_of"],
                 data_grade=state["data_grade"],
-                refused_reason="data grade C: not enough clean data to give a verdict",
+                refused_reason="data grade C: not enough clean data to give a verdict ("
+                               + "; ".join(state["grades"].reasons) + ")",
+                price_grade=state["grades"].prices,
+                fundamentals_grade=state["grades"].fundamentals,
+                grade_reasons=list(state["grades"].reasons),
             )
         }
 
@@ -107,7 +116,7 @@ def build_graph(
         rv = state.get("review")
         desk_reports = rv.desk_reports if rv is not None else state.get("desk_reports", [])
         return {"verdict": score(state["symbol"], state["as_of"], state["data_grade"], state.get("stock_type"),
-                                 desk_reports, list(desks), why, review=rv)}
+                                 desk_reports, list(desks), why, review=rv, grades=state.get("grades"))}
 
     g = StateGraph(RunState)
     g.add_node("data_office", data_office)

@@ -95,7 +95,7 @@ def test_stale_price_blocks_a_call():
 
 def test_not_checked_lists_open_items_and_desk_gaps():
     v = verdict([desk("a", gaps=["financials: none"]), desk("b"), desk("c")], weights())
-    assert v.not_checked[:3] == OPEN_ITEMS and "a: financials: none" in v.not_checked
+    assert v.not_checked[:len(OPEN_ITEMS)] == OPEN_ITEMS and "a: financials: none" in v.not_checked
 
 
 def test_graph_run_gives_no_call_with_reasons():

@@ -660,3 +660,40 @@ Newest at the bottom. One entry per choice, with the reason.
   shown; consistency passes; no veto. The momentum analyst is set aside for all three: prices end on
   13 Nov, too old for it to compute, so it printed "not computed" with no evidence item (its views were
   neutral anyway).
+
+## Data office part 1: freshness clerk and coverage grader (24 Nov 2026)
+
+- **Where:** src/smt/data_office.py. collect() is the only function that reads the lake; the freshness table and
+  the grades are pure functions of that snapshot. graph.py's data office node calls it and replaces the
+  placeholder grade B. A run with no lake at all (tests, dry runs) keeps grade B and says "no data lake: data
+  not graded".
+- **Due rule (listing rule, not verified against the regulation text):** a quarter's results are due 45 days
+  after the quarter end; the March quarter 60 days after. The latest due quarter is the latest quarter end
+  whose due date is on or before as_of.
+- **Latest fiscal year (my reading):** the latest 31 March on or before as_of. Annual report facts count only for
+  rows dated 31 March, so September gold on loan rows do not stand in for a fiscal year. From April until a
+  company's annual report facts are entered, its fundamentals grade is B at best.
+- **Freshness table:** prices (latest close, age, bars in the last 400 days), Nifty 50 prices, quarterly results
+  (latest quarter, count, basis, latest due quarter and whether loaded), balance sheet and cash flow (filed for
+  March and September; stale if the latest due one is missing), annual report facts (latest fiscal year with
+  verified rows, count), cost of capital inputs (version, stale). Each row fresh / stale / missing with a reason.
+- **Grading rule (same for every stock):** price grade C if no price or latest close more than 30 days old; B if
+  8 to 30 days old or fewer than 250 bars in the last 400 days; else A. Fundamentals grade C if no filings,
+  fewer than 4 quarters, or the latest quarter more than one quarter behind the latest due quarter; B if 4 to
+  7 quarters, no verified annual report facts for the latest fiscal year, or the latest due quarter not loaded;
+  else A. Overall = price grade, capped at B when fundamentals are B or C.
+- **Why only the price grade can refuse:** a stock with prices but no filings must still run the market activity
+  desk so the daily call log keeps it (106 of 115 index stocks have no filings loaded today). Its page says
+  "fundamentals: grade C, <reason>". Scoring adds one block: a desk with weight above 0 whose data domain has
+  grade C (equity research: fundamentals; market activity: prices) blocks the call for that horizon.
+- **Verdict:** carries the overall, price and fundamentals grades and their reasons. "data grade is a
+  placeholder" removed from the open items.
+- **Evidence auditor fix:** a report that computed nothing (no evidence, neutral views, and it says "not
+  computed" or states no figure) is listed as "not computed: <its text>", not as a fail, and is not set
+  aside. A report that states a figure or a non-neutral view without a valid source is still a fail.
+- **Safety check:** all 115 stocks recorded by the call logger (13 Nov 2026) re-graded on that date: none
+  would be refused (all overall B: prices A or B, fundamentals B or C).
+- **Test change:** one existing test (lender routing) used a lake with filings but no prices; it is now graded C
+  and refused, so the test passes an explicit grade, as it is about routing.
+- **First run, 24 Nov 2026:** TCS, TITAN: B (prices B, 11 days old; fundamentals B, 5 quarters). M&MFIN: B
+  (also no verified annual report facts). ABB (no filings): B (prices B, fundamentals C), runs, not refused.

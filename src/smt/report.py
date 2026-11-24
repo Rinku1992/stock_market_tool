@@ -11,7 +11,7 @@ checked before it is written.
 
 Layout (both files): header, verdict, checks (review veto, re-checker and evidence auditor, analysts' "Check:"
 lines, stale or missing data), key numbers (the five questions of docs/VALUATION.md), desks and analysts, not
-checked, sources, footer.
+checked, data (freshness table), sources, footer.
 """
 
 import argparse
@@ -77,6 +77,8 @@ class Page:
     notes: dict[str, list[str]] = field(default_factory=dict)  # group -> notes copied from analyst text
     checks: dict[str, list[str]] = field(default_factory=dict)  # Checks section: veto, results, analyst checks, flags
     set_aside: dict[str, str] = field(default_factory=dict)  # analyst id -> why (no valid source)
+    grade_reasons: list[str] = field(default_factory=list)
+    data: list[tuple[str, str, str, str]] = field(default_factory=list)  # freshness table: dataset, detail, status, reason
 
 
 # ---------------------------------------------------------------- building the page from one run
@@ -232,7 +234,8 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
 
     header = [("Symbol", state["symbol"]), ("Stock type", st), ("As of", str(as_of)),
               ("Latest price", f"Rs {px.group(1)} on {px.group(2)}" if px else missing("price")),
-              ("Data grade", v.data_grade.value), ("Engine commit", version)]
+              ("Data grade", f"{v.data_grade.value} (prices {v.price_grade.value if v.price_grade else NA}, fundamentals "
+                             f"{v.fundamentals_grade.value if v.fundamentals_grade else NA})"), ("Engine commit", version)]
     verdict = []
     for h in v.horizons:
         head = (f"No call (confidence {h.confidence:.2f})." if h.call == Call.NO_CALL
@@ -274,7 +277,8 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
             checks["flags"].append(g)
     return Page(state["symbol"], as_of, header, verdict, rows, desks, list(v.not_checked) or ["nothing listed"],
                 sources or ["none"], FOOTER.format(v.weights_version or "none"), notes, checks,
-                dict(rvw.set_aside) if rvw is not None else {})
+                dict(rvw.set_aside) if rvw is not None else {}, list(v.grade_reasons),
+                [(r.dataset, r.detail, r.status, r.reason) for r in (state["grades"].table if state.get("grades") else [])])
 
 
 # ---------------------------------------------------------------- rendering
@@ -287,7 +291,10 @@ def _views(views) -> str:
 
 def to_markdown(p: Page) -> str:
     out = [f"# {p.symbol}: stock report, {p.as_of}", "", "## 1. Header", ""]
-    out += [f"- **{k}:** {v}" for k, v in p.header]
+    for k, v in p.header:
+        out.append(f"- **{k}:** {v}")
+        if k == "Data grade":
+            out += [f"  - {x}" for x in p.grade_reasons]
     out += ["", "## 2. Verdict", ""]
     for h, head, reasons in p.verdict:
         out.append(f"**{h}:** {head}")
@@ -320,7 +327,13 @@ def to_markdown(p: Page) -> str:
             mark = f" ({NO_SOURCE}: {p.set_aside[a.analyst_id]}; views set aside)" if a.analyst_id in p.set_aside else ""
             out += [f"#### {a.analyst_id}{mark}", "", a.finding, "", f"Views: {_views(a.views)}", ""]
     out += ["## 6. Not checked", ""] + [f"- {x}" for x in p.not_checked]
-    out += ["", "## 7. Sources", ""] + [f"- {x}" for x in p.sources]
+    out += ["", "## 7. Data", ""]
+    if p.data:
+        out += ["| Dataset | What is loaded | Status | Why |", "|---|---|---|---|"]
+        out += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in p.data]
+    else:
+        out.append("No freshness table (no data lake).")
+    out += ["", "## 8. Sources", ""] + [f"- {x}" for x in p.sources]
     out += ["", "---", "", p.footer, ""]
     return "\n".join(out)
 
@@ -339,7 +352,9 @@ def to_html(p: Page) -> str:
            "<meta name='viewport' content='width=device-width, initial-scale=1'>",
            f"<title>{e(p.symbol)} stock report {p.as_of}</title><style>{CSS}</style></head><body>",
            f"<h1>{e(p.symbol)}: stock report, {p.as_of}</h1>", "<h2>1. Header</h2><table>"]
-    out += [f"<tr><th>{e(k)}</th><td>{e(v)}</td></tr>" for k, v in p.header]
+    for k, v in p.header:
+        extra = ("<ul>" + "".join(f"<li>{e(x)}</li>" for x in p.grade_reasons) + "</ul>") if k == "Data grade" else ""
+        out.append(f"<tr><th>{e(k)}</th><td>{e(v)}{extra}</td></tr>")
     out += ["</table>", "<h2>2. Verdict</h2>"]
     for h, head, reasons in p.verdict:
         out.append(f"<p class='call'>{e(h)}: {e(head)}</p><ul>" + "".join(f"<li>{e(r)}</li>" for r in reasons) + "</ul>")
@@ -375,7 +390,14 @@ def to_html(p: Page) -> str:
             out += [f"<h4>{e(a.analyst_id + mark)}</h4>", f"<p class='finding'>{e(a.finding)}</p>",
                     f"<p class='muted'>Views: {e(_views(a.views))}</p>"]
     out += ["<h2>6. Not checked</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_checked] + ["</ul>"]
-    out += ["<h2>7. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
+    out.append("<h2>7. Data</h2>")
+    if p.data:
+        out.append("<table><tr><th>Dataset</th><th>What is loaded</th><th>Status</th><th>Why</th></tr>" + "".join(
+            f"<tr><td>{e(a)}</td><td>{e(b)}</td><td{' class=' + chr(39) + 'na' + chr(39) if c != 'fresh' else ''}>"
+            f"{e(c)}</td><td>{e(d)}</td></tr>" for a, b, c, d in p.data) + "</table>")
+    else:
+        out.append("<p class='muted'>No freshness table (no data lake).</p>")
+    out += ["<h2>8. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
     out += [f"<hr><p class='muted'>{e(p.footer)}</p></body></html>"]
     return "\n".join(out)
 

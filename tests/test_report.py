@@ -10,7 +10,7 @@ from smt.report import BANNED, FMT, FOOTER, NA, build_page, check_words, to_html
 from smt.store import FeatureStore
 
 SECTIONS = ["## 1. Header", "## 2. Verdict", "## 3. Checks", "## 4. Key numbers", "## 5. Desks and analysts",
-            "## 6. Not checked", "## 7. Sources"]
+            "## 6. Not checked", "## 7. Data", "## 8. Sources"]
 
 
 def page_for(tmp_path, **kw):

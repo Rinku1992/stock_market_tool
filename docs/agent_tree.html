@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Independent review, code part", "Evidence auditor and number re-checker run before every verdict; a critical fail (market value, 12-month profit, EV) vetoes it. Stock pages now open with a Checks section. TCS, TITAN, M&MFIN: every figure re-checks exactly; momentum set aside (prices too old to compute it)."],
-  next: ["Data grade, then the LLM reviewers", "Open items: data grade (task 4), kill criteria (sentinel), LLM reviewers. Update prices: they are from 13 Nov."],
+  now: ["Data office part 1: freshness and grades", "Every run now gets a real data grade (prices and fundamentals) and a freshness table. Today TCS, TITAN, M&MFIN are B (prices 11 days old; 5 quarters loaded); a stock with no filings (ABB) is B with fundamentals C and still runs."],
+  next: ["Load more quarters and update prices, then the LLM reviewers", "8 quarters lift fundamentals to A; prices from 13 Nov hold the price grade at B. Open: kill criteria (sentinel), LLM reviewers."],
   you: ["Record each trading day, plus one bank file; G-sec yield every 45 days", "Keep the G-sec input fresh (python -m smt.assumptions set gsec_10y ...); it is flagged stale after 45 days. After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["24 Nov", "Data office part 1 built: freshness clerk and coverage grader replace the placeholder grade. Only a price grade C refuses; a desk whose data is grade C blocks its call. 'Not computed' analysts are no longer listed as fails. The 115 stocks recorded on 13 Nov would all still be recorded."],
   ["24 Nov", "Independent review (code): evidence auditor (no valid source = views set aside), number re-checker on its own code path (0.5%; critical fails veto the verdict), consistency between analysts. financial_trend now uses the valuation cash definition and shows net debt before and with leases and gold on loan."],
   ["23 Nov", "Stock report built: one command, one page per stock (Markdown and self-contained HTML, not in git). Numbers only from stored features of that run; analysts' labels kept; banned words checked before writing. First pages: TCS, TITAN, M&MFIN."],
   ["23 Nov", "Scoring engine replaces the always-no-call stub: weighted desk views against fixed thresholds (versioned file verdict.json, all weights 0). Stale price or a missing weighted desk blocks a call. Every verdict lists its reasons and what was not checked."],
@@ -218,8 +219,8 @@ const UNITS = [
   { n: "0", t: "Data office", q: "Checks the data before any research runs. Bad data stops the run.", a: [
     ["Symbol and corporate action resolver", "C", "Maps each symbol to its ISIN and tracks splits, bonus issues and mergers."],
     ["Reconciler", "C", "Compares the same figure from two sources and flags any mismatch."],
-    ["Freshness clerk", "C", "Stamps every value with the date it became known."],
-    ["Coverage grader", "C", "Grades the data A, B or C. On C, no verdict is given."],
+    ["Freshness clerk", "C", "Stamps every value with the date it became known. Built: a table per stock of what is loaded (prices, index, quarterly results against the due date, balance sheet, cash flow, annual report facts, cost of capital inputs), each fresh, stale or missing.", 2],
+    ["Coverage grader", "C", "Grades the data A, B or C. On C, no verdict is given. Built: a price grade and a fundamentals grade; only a price grade C refuses, so stocks without filings still run the price desk. A desk whose data is grade C cannot make a call.", 2],
     ["Point-in-time librarian", "C", "Makes sure backtests only see what was known on each date."],
     ["Input guard", "C", "Treats news and web text as untrusted and blocks hidden instructions."] ] },
   { n: "R", t: "Router", q: "Labels the stock so each desk uses the right playbook.", a: [
