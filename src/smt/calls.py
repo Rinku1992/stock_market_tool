@@ -104,7 +104,8 @@ def call_rows(state: dict, instrument_id: str, close: float, version: str, recor
             rows.append({**base, "source_kind": "analyst", "source_id": r.analyst_id, "horizon": v.horizon.value,
                          "direction": v.direction.value, "call": None, "strength": v.strength, "confidence": v.confidence,
                          "weights_version": None, "report_json": js})
-    for d in state.get("desk_reports", []):
+    rv = state.get("review")
+    for d in (rv.desk_reports if rv is not None else state.get("desk_reports", [])):  # desk views after review
         js = d.model_dump_json()
         for v in d.views:
             rows.append({**base, "source_kind": "desk", "source_id": d.unit, "horizon": v.horizon.value,

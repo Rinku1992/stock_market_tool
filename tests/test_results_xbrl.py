@@ -120,7 +120,7 @@ def test_financial_trend_reports_growth_margins_debt_and_cash(tmp_path):
     assert "revenue Rs 1,000 crore, net profit Rs 100 crore, net margin 10.0%" in f
     assert "EBITDA) Rs 200 crore, margin 20.0%" in f  # 140 + 30 + 50 - 20
     assert "revenue +25.0%, net profit +25.0%" in f
-    assert "net debt Rs 700 crore, debt to equity 0.25" in f
+    assert "Before leases: net debt Rs 700 crore, debt to equity 0.25" in f
     assert "nine months to 2024-12-31: operating cash Rs 400 crore, 1.60 times net profit; capex Rs 150 crore, free cash flow Rs 250 crore" in f
     assert all(v.direction.value == "neutral" for v in r.views) and r.evidence
     assert ctx.store.get_feature_asof("INE002A01018", "fin_debt_to_equity", date(2025, 2, 1))["value"] == pytest.approx(0.25)

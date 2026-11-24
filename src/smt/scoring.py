@@ -13,6 +13,8 @@ Rules (fixed before use; DECISIONS.md, 23 Nov 2026):
 - consider: score >= min_score and confidence >= min_confidence; avoid: score <= -min_score and confidence
   >= min_confidence; else no call. Thresholds are in the same versioned file.
 - Every verdict lists its reasons per horizon and what was not checked.
+- Review veto (smt.review): a critical re-check fail, or a weighted desk with every analyst set aside, makes every
+  horizon "no call" with the first reason "review veto: ...".
 """
 
 from datetime import date
@@ -23,7 +25,7 @@ from smt.schema import Call, DataGrade, DeskReport, Direction, Horizon, HorizonV
 UNIT = "verdict"
 PRICE_STALE_DAYS = 7
 OPEN_ITEMS = [
-    "review unit not built: no review veto applied",
+    "review: LLM reviewers not built",
     "data grade is a placeholder (B) until the data office is built",
     "kill criteria not set: the sentinel is not built",
 ]
@@ -96,10 +98,25 @@ def score_horizon(h: Horizon, desks: dict[str, DeskReport], weights: dict, price
     return HorizonVerdict(horizon=h, call=Call.NO_CALL, confidence=0.0, reasons=reasons + ["below the call threshold"])
 
 
+def review_veto(review, desks: dict[str, DeskReport], weights: dict) -> list[str]:
+    """What the review vetoes: critical re-check fails, and any desk with weight above 0 whose analysts were all
+    set aside by the evidence auditor."""
+    if review is None:
+        return []
+    veto = list(review.veto)
+    for u, cells in weights.get("weights", {}).items():
+        if any(float(x) > 0 for x in cells.values()) and u in desks:
+            names = desks[u].analysts
+            if names and all(n in review.set_aside for n in names):
+                veto.append(f"desk {u} has every analyst set aside (no valid source)")
+    return veto
+
+
 def score(symbol: str, as_of: date, data_grade: DataGrade, stock_type: str | None, desk_reports: list[DeskReport],
-          expected_units: list[str], price_why: str | None, weights: dict | None = None) -> Verdict:
+          expected_units: list[str], price_why: str | None, weights: dict | None = None, review=None) -> Verdict:
     weights = weights if weights is not None else load_weights(UNIT)
     desks = {d.unit: d for d in desk_reports}
+    veto = review_veto(review, desks, weights)
     not_checked = list(OPEN_ITEMS)
     for u in expected_units:
         if u not in desks:
@@ -113,6 +130,10 @@ def score(symbol: str, as_of: date, data_grade: DataGrade, stock_type: str | Non
             if item not in seen:
                 seen.add(item)
                 not_checked.append(item)
-    return Verdict(symbol=symbol, as_of=as_of, data_grade=data_grade, stock_type=stock_type,
-                   horizons=[score_horizon(h, desks, weights, price_why) for h in Horizon],
+    horizons = [score_horizon(h, desks, weights, price_why) for h in Horizon]
+    if veto:
+        first = "review veto: " + "; ".join(veto)
+        horizons = [hv.model_copy(update={"call": Call.NO_CALL, "confidence": 0.0, "reasons": [first] + hv.reasons})
+                    for hv in horizons]
+    return Verdict(symbol=symbol, as_of=as_of, data_grade=data_grade, stock_type=stock_type, horizons=horizons,
                    weights_version=weights.get("version"), not_checked=not_checked)
