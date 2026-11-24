@@ -85,7 +85,7 @@ def test_no_evidence_and_late_evidence_are_set_aside(tmp_path):
     # the schema already refuses late evidence when a report is built; the auditor is a second line, for reports
     # that skipped validation (built without it, or read back from storage)
     late_report = AnalystReport.model_construct(**{**report("b", evidence=[good]).__dict__, "evidence": [late]})
-    checks, aside = audit(ctx.lake, [report("a"), late_report, report("c", evidence=[good]),
+    checks, aside = audit(ctx.lake, [report("a", "Revenue Rs 100 crore."), late_report, report("c", evidence=[good]),
                                      report("d", evidence=[ghost]), stub], ISIN, AS_OF)
     assert aside["a"] == "no evidence item"
     assert aside["b"] == f"evidence f is dated {AS_OF + timedelta(days=1)}, after {AS_OF}"

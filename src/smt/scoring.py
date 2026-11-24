@@ -4,7 +4,8 @@ Rules (fixed before use; DECISIONS.md, 23 Nov 2026):
 - Weights per desk and horizon come from a versioned file (desks/weights/verdict.json, history/ kept). A
   weight is above 0 only when measured edge supports it. With every weight 0 for a horizon, the call is
   "no call", and the reason says so: a verdict from unproven rules would look like advice.
-- Blocks (any one gives "no call"): the stock's price is missing or stale (latest close more than 7 days
+- Blocks (any one gives "no call"): a desk with weight above 0 whose data domain has grade C (equity research
+  needs fundamentals, market activity needs prices); the stock's price is missing or stale (latest close more than 7 days
   before as_of, or older than the Nifty 50's latest close); a desk with weight above 0 is missing or has
   no built analyst.
 - Score = sum(w x sign x strength x confidence) / sum(w); confidence = sum(w x confidence) / sum(w), over
@@ -23,10 +24,10 @@ from smt.desks.lead import load_weights
 from smt.schema import Call, DataGrade, DeskReport, Direction, Horizon, HorizonVerdict, Verdict
 
 UNIT = "verdict"
+DOMAIN = {"equity_research": "fundamentals", "market_activity": "prices"}  # data each desk needs
 PRICE_STALE_DAYS = 7
 OPEN_ITEMS = [
     "review: LLM reviewers not built",
-    "data grade is a placeholder (B) until the data office is built",
     "kill criteria not set: the sentinel is not built",
 ]
 _SIGN = {Direction.POSITIVE: 1, Direction.NEGATIVE: -1}
@@ -56,7 +57,8 @@ def desk_built(d: DeskReport) -> bool:
     return bool(d.facts)
 
 
-def score_horizon(h: Horizon, desks: dict[str, DeskReport], weights: dict, price_why: str | None) -> HorizonVerdict:
+def score_horizon(h: Horizon, desks: dict[str, DeskReport], weights: dict, price_why: str | None,
+                  grades: dict[str, tuple[DataGrade, str]] | None = None) -> HorizonVerdict:
     w_all = {u: float(c.get(h.value, 0.0)) for u, c in weights.get("weights", {}).items()}
     used = {u: w for u, w in w_all.items() if w > 0}
     th = weights.get("thresholds", {})
@@ -69,6 +71,9 @@ def score_horizon(h: Horizon, desks: dict[str, DeskReport], weights: dict, price
                        f"{weights.get('version', 'none')}), so no call is made")
         return HorizonVerdict(horizon=h, call=Call.NO_CALL, confidence=0.0, reasons=reasons + blocks)
     for u in used:
+        dom = DOMAIN.get(u)
+        if grades and dom in grades and grades[dom][0] == DataGrade.C:
+            blocks.append(f"desk {u} (weight {used[u]:g}) needs {dom} data, which has grade C ({grades[dom][1]})")
         if u not in desks:
             blocks.append(f"desk {u} (weight {used[u]:g}) is missing")
         elif not desk_built(desks[u]):
@@ -113,7 +118,9 @@ def review_veto(review, desks: dict[str, DeskReport], weights: dict) -> list[str
 
 
 def score(symbol: str, as_of: date, data_grade: DataGrade, stock_type: str | None, desk_reports: list[DeskReport],
-          expected_units: list[str], price_why: str | None, weights: dict | None = None, review=None) -> Verdict:
+          expected_units: list[str], price_why: str | None, weights: dict | None = None, review=None,
+          grades=None) -> Verdict:
+    """grades: the data office result (smt.data_office.Grades) or None."""
     weights = weights if weights is not None else load_weights(UNIT)
     desks = {d.unit: d for d in desk_reports}
     veto = review_veto(review, desks, weights)
@@ -130,10 +137,15 @@ def score(symbol: str, as_of: date, data_grade: DataGrade, stock_type: str | Non
             if item not in seen:
                 seen.add(item)
                 not_checked.append(item)
-    horizons = [score_horizon(h, desks, weights, price_why) for h in Horizon]
+    by_domain = ({"prices": (grades.prices, grades.reasons[0]), "fundamentals": (grades.fundamentals, grades.reasons[-1])}
+                 if grades is not None and len(grades.reasons) >= 2 else None)
+    horizons = [score_horizon(h, desks, weights, price_why, by_domain) for h in Horizon]
     if veto:
         first = "review veto: " + "; ".join(veto)
         horizons = [hv.model_copy(update={"call": Call.NO_CALL, "confidence": 0.0, "reasons": [first] + hv.reasons})
                     for hv in horizons]
     return Verdict(symbol=symbol, as_of=as_of, data_grade=data_grade, stock_type=stock_type, horizons=horizons,
-                   weights_version=weights.get("version"), not_checked=not_checked)
+                   weights_version=weights.get("version"), not_checked=not_checked,
+                   price_grade=grades.prices if grades is not None else None,
+                   fundamentals_grade=grades.fundamentals if grades is not None else None,
+                   grade_reasons=list(grades.reasons) if grades is not None else [])

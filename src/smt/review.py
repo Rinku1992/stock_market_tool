@@ -5,7 +5,8 @@ arithmetic. It does NOT import or call any analyst helper (smt.analysts.*) or th
 error in an analyst's helper cannot hide itself by being reused here. It only reads the analysts' stored
 features (to compare) and their report text (for the consistency check).
 
-1. Evidence auditor: every analyst report that is not a "not built yet" stub needs at least one evidence item,
+1. Evidence auditor: a report that computed nothing (no evidence, neutral views, "not computed" or no figure) is
+   listed as "not computed". Every other report that is not a "not built yet" stub needs at least one evidence item,
    and each item must point to something that exists in the lake (a filing, a price series, a report fact)
    dated on or before as_of. A report that fails is set aside: its views count as neutral for the desk and
    the verdict, and the failure is listed. Its text stays on the page, marked "no valid source".
@@ -36,7 +37,7 @@ LENDER, REAL_ESTATE = "lender", "real_estate"
 @dataclass
 class Check:
     name: str
-    status: str  # "pass", "fail", "not checked"
+    status: str  # "pass", "fail", "not checked", "not computed"
     text: str
     critical: bool = False
 
@@ -51,7 +52,7 @@ class Review:
 
     def lines(self) -> list[Check]:
         """All results, fails first, then not checked, then passes."""
-        order = {"fail": 0, "not checked": 1, "pass": 2}
+        order = {"fail": 0, "not checked": 1, "not computed": 2, "pass": 3}
         return sorted(self.audit + self.checks, key=lambda c: order[c.status])
 
 
@@ -153,10 +154,21 @@ def _evidence_ok(lake, e, iid: str, as_of: date) -> str | None:
     return f"{e.ref}: source type not recognised"
 
 
+def not_computed(r: AnalystReport) -> bool:
+    """A report that computed nothing: no evidence, every view neutral, and it says "not computed" or states no
+    figure. It is listed as not computed, not as a fail: there is nothing in it that needs a source."""
+    if r.evidence or any(v.direction.value != "neutral" for v in r.views):
+        return False
+    return "not computed" in r.finding.lower() or not re.search(r"\d", r.finding)
+
+
 def audit(lake, reports: list[AnalystReport], iid: str | None, as_of: date) -> tuple[list[Check], dict[str, str]]:
     checks, aside = [], {}
     for r in reports:
         if r.finding.strip() == STUB:
+            continue
+        if not_computed(r):
+            checks.append(Check(f"evidence: {r.analyst_id}", "not computed", f"{r.analyst_id}: {r.finding.strip()}"))
             continue
         if not r.evidence:
             why = "no evidence item"

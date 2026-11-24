@@ -126,6 +126,9 @@ class Verdict(BaseModel):
     stock_type: str | None = None
     horizons: list[HorizonVerdict] = Field(default_factory=list)
     refused_reason: str | None = None
+    price_grade: DataGrade | None = None  # data office: prices
+    fundamentals_grade: DataGrade | None = None  # data office: filings and annual report facts
+    grade_reasons: list[str] = Field(default_factory=list)
     weights_version: str | None = None  # verdict weights file version used by the scoring engine
     not_checked: list[str] = Field(default_factory=list)  # what the verdict could not check
 

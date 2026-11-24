@@ -245,7 +245,10 @@ def test_lender_missing_interest_is_not_zero(tmp_path):
 def test_graph_routes_a_lender_filing(tmp_path):
     from smt.graph import run
     ctx = _lender_ctx(tmp_path)
-    state = run("X", ctx.as_of, ctx.store, lake=ctx.lake, instrument_id=ctx.instrument_id, desks={"equity_research": [financial_trend]})
+    from smt.schema import DataGrade
+    # this lake has filings but no prices, which the data office now grades C (refused); this test is about routing
+    state = run("X", ctx.as_of, ctx.store, lake=ctx.lake, instrument_id=ctx.instrument_id, desks={"equity_research": [financial_trend]},
+                grade_fn=lambda c: DataGrade.B)
     assert state["verdict"].stock_type == "lender"
 
 
