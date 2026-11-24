@@ -619,3 +619,44 @@ Newest at the bottom. One entry per choice, with the reason.
   value" to "not a forecast and not an estimate of what the stock is worth".
 - **Display rounding:** multiples print with one decimal (P/B 1.5x on the page; the reverse valuation text
   prints the P/B it uses as 1.45x). Same stored number.
+
+## Independent review, code part (24 Nov 2026)
+
+- **Where:** src/smt/review.py, called by graph.py's review node between the desks and the verdict. No LLM.
+- **Evidence auditor:** every analyst report that is not a "not built yet" stub needs at least one evidence item,
+  and each item must point to something in the lake: a filing (financials/<id>/<period end>, published by the
+  as_of close), a price series (prices_daily/<id>, a price on the evidence date) or a report fact
+  (report_facts/<id>/<item>), dated on or before as_of. The schema already refuses late evidence when a report
+  is built; the auditor is a second line for reports that skipped validation.
+- **Set-aside rule:** a report that fails keeps its text on the page, marked "no valid source", but its views
+  count as neutral: the review rebuilds that desk's view with the desk lead's own rule (no LLM) and the
+  verdict uses the rebuilt desk. The call logger records the desk views after review. If a desk with weight
+  above 0 has every analyst set aside, that is a review veto.
+- **Number re-checker, separate code path:** its own SQL on the raw lake rows and its own arithmetic; it imports
+  no analyst helper and not the financials loader. Re-checked: market value (shares from the latest quarter's
+  paid-up capital / face value x latest close), 12-month revenue, 12-month reported profit, P/E, P/B, ROE,
+  EBIT, borrowings, cash (cash + bank balances + current investments), EV before leases. Lenders skip
+  revenue, EBIT, borrowings, cash and EV (dropped by their playbook). Compared only with features stored by
+  this run (known on the as_of date). To have something to compare, relative_valuation now also stores
+  val_revenue_ttm, val_borrowings and val_cash.
+- **Tolerance:** 0.5% for amounts; 0.05 in the unit shown for ratios (P/E and P/B in x, ROE in percentage
+  points). Not tuned to the data: a real fail is printed with both values and "not verified".
+- **Critical:** market value, 12-month reported profit, EV before leases. A critical fail is a review veto: every
+  horizon "no call", first reason "review veto: <what failed>".
+- **Consistency:** a quantity printed by two analysts (borrowings, cash, net debt by view, reported and owners'
+  profit, share count) under the same label for the same date must match; a clash is a fail. Different labels
+  (for example "cash and current investments" vs "cash, bank balances and current investments") do not clash.
+- **One debt and cash definition (fix found in review):** financial_trend now prints cash as "cash, bank
+  balances and current investments" (the valuation definition: cash must be filed; missing parts are left
+  out and named), net debt and debt to equity "before leases", and, when the figures exist, "including leases"
+  or "including leases and gold on loan", with capital_returns' rules for the same balance sheet date. New
+  features: fin_net_debt_before_leases, fin_debt_to_equity_before_leases, fin_net_debt_incl_leases[_gold],
+  fin_debt_to_equity_incl_leases[_gold]. The old fin_net_debt (borrowings - cash - current investments) and
+  fin_debt_to_equity keep their names and old definitions, so stored history keeps its meaning.
+- **Open items:** "review unit not built" removed; "review: LLM reviewers not built" added.
+- **Stock page:** new "Checks" section after the verdict: review veto; re-checker and auditor lines, fails
+  first; every "Check:" sentence from an analyst, with its name; stale or missing data flags. No new maths.
+- **First real run, 24 Nov 2026:** TCS, TITAN, M&MFIN: every re-check passes with the same value to the rupee
+  shown; consistency passes; no veto. The momentum analyst is set aside for all three: prices end on
+  13 Nov, too old for it to compute, so it printed "not computed" with no evidence item (its views were
+  neutral anyway).
