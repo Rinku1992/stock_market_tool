@@ -11,8 +11,10 @@ closes. Market value = quantity x latest close. A holding with no stored price i
 out of the maths.
 
 Maths (pure functions below):
-- weight = market value / total market value of covered holdings; top-five share; sector weights (industry from
-  the index member list; none stored: "sector not known").
+- weight = market value / total market value of covered holdings; top-five share; sector weights. Sector: a
+  holding in the owner's diversified fund list is "diversified fund" (no single-stock limit, still counted
+  everywhere else); else the owner sector map, then the index member list industry, else "sector not known".
+  Neither "diversified fund" nor "sector not known" is tested against the sector limit.
 - daily returns over the last 250 trading days on dates common to all covered holdings (at least 120);
   sample covariance matrix S; portfolio variance w'Sw, volatility sqrt(252 w'Sw).
 - risk share of stock i = w_i (S w)_i / (w'Sw); the shares sum to 100%.
@@ -32,6 +34,8 @@ from smt.schema import AnalystKind, AnalystReport, Evidence, neutral_views
 
 UNIT = "portfolio"
 NOT_HELD = "not held"
+FUND, NOT_KNOWN = "diversified fund", "sector not known"
+NO_SECTOR_LIMIT = {FUND, NOT_KNOWN}  # not sectors: no single-sector check for them
 SETTINGS = Path(__file__).resolve().parents[1] / "assumptions" / "portfolio_limits.json"
 BENCHMARK = "IDX:NIFTY50"
 WINDOW, MIN_DAYS, YEAR = 250, 120, 252
@@ -53,7 +57,7 @@ def top_share(ws: list[float], n: int = 5) -> float:
 def sector_weights(sectors: list[str | None], ws: list[float]) -> dict[str, float]:
     out: dict[str, float] = {}
     for s, w in zip(sectors, ws):
-        k = s or "sector not known"
+        k = s or NOT_KNOWN
         out[k] = out.get(k, 0.0) + w
     return dict(sorted(out.items(), key=lambda kv: -kv[1]))
 
@@ -123,6 +127,7 @@ class Holding:
     close_date: date | None = None
     sector: str | None = None
     bars: dict = field(default_factory=dict)  # trade date -> close
+    fund: bool = False  # owner's diversified fund list: no single-stock limit
 
     @property
     def value(self) -> float | None:
@@ -162,16 +167,21 @@ def _read_holdings(lake, account: str, as_of: date) -> tuple[date | None, list[t
 
 def _book(lake, as_of: date, settings_path: Path) -> Book | None:
     from smt.data.prices import load_bars
+    from smt.assumptions import load_sector_map
     from smt.router import _industry
 
     st = load_settings(settings_path)
+    funds = {x.upper() for x in st.get("diversified_funds", [])}
+    owner_map = load_sector_map(settings_path.parent)
     account = st["account_alias"]
     d, rows = _read_holdings(lake, account, as_of)
     if d is None:
         return None
     covered, missing = [], []
     for iid, sym, qty, avg in rows:
-        h = Holding(iid, sym, qty, avg, sector=_industry(lake, iid))
+        fund = sym.upper() in funds
+        sector = FUND if fund else (owner_map.get(sym.upper()) or _industry(lake, iid))  # owner map, then index list
+        h = Holding(iid, sym, qty, avg, sector=sector, fund=fund)
         bars = load_bars(lake, iid, as_of)
         if bars:
             h.close, h.close_date = bars[-1].close, bars[-1].d
@@ -190,9 +200,9 @@ def _cached(lake_id: int, lake_ref, as_of: date, settings_path: Path) -> Book | 
     return _book(lake_ref, as_of, settings_path)
 
 
-def get_book(lake, as_of: date, settings_path: Path = SETTINGS) -> Book | None:
+def get_book(lake, as_of: date, settings_path: Path | None = None) -> Book | None:
     """The book for one run date (computed once, then reused by the four analysts and by every stock's run)."""
-    return _cached(id(lake), lake, as_of, settings_path)
+    return _cached(id(lake), lake, as_of, settings_path or SETTINGS)
 
 
 def risk_view(book: Book, nifty: dict) -> tuple[dict | None, str | None]:
@@ -300,20 +310,29 @@ def position_size(ctx: AnalystContext) -> AnalystReport:
     else:
         w = book.weights[i]
         rank = sorted(book.weights, reverse=True).index(w) + 1
-        sec = h.sector or "sector not known"
-        parts.append(f"{h.symbol}: weight {w:.1%} (rank {rank} of {len(book.covered)}); single stock limit "
-                     f"{lim['single_stock']:.0%} ({label}): {limit_text(w, lim['single_stock'])}.")
-        parts.append(f"Sector {sec}: {sw[sec]:.1%}" + (f"; single sector limit {lim['single_sector']:.0%}: "
-                     f"{limit_text(sw[sec], lim['single_sector'])}." if h.sector else "; no sector limit check."))
+        sec = h.sector or NOT_KNOWN
+        if h.fund:
+            parts.append(f"{h.symbol}: weight {w:.1%} (rank {rank} of {len(book.covered)}); diversified fund, "
+                         "single-stock limit not applied.")
+        else:
+            parts.append(f"{h.symbol}: weight {w:.1%} (rank {rank} of {len(book.covered)}); single stock limit "
+                         f"{lim['single_stock']:.0%} ({label}): {limit_text(w, lim['single_stock'])}.")
+        parts.append(f"Sector {sec}: {sw[sec]:.1%}" + ("; no sector limit check." if sec in NO_SECTOR_LIMIT else
+                     f"; single sector limit {lim['single_sector']:.0%}: {limit_text(sw[sec], lim['single_sector'])}."))
         feats.update({"pf_weight": w, "pf_rank": rank, "pf_sector_weight": sw[sec]})
         texts["pf_sector"] = sec
     parts.append(f"Top five holdings: {top5:.1%} together; top five limit {lim['top_five']:.0%}: "
                  f"{limit_text(top5, lim['top_five'])}.")
     parts.append("Sector weights: " + ", ".join(f"{k} {v:.1%}" for k, v in sw.items()) + ".")
+    unknown, in_funds = sw.get(NOT_KNOWN, 0.0), sw.get(FUND, 0.0)
+    parts.append(f"Sector limit check covers {1 - unknown - in_funds:.1%} of the money; {unknown:.1%} has sector not "
+                 "known" + (f" and {in_funds:.1%} is in diversified funds" if in_funds else "")
+                 + ", which the check does not cover.")
+    feats["pf_sector_unknown_share"] = unknown
     breaches = [f"{x.symbol} {wx:.1%} above the single stock limit {lim['single_stock']:.0%}"
-                for x, wx in zip(book.covered, book.weights) if wx > lim["single_stock"]]
+                for x, wx in zip(book.covered, book.weights) if wx > lim["single_stock"] and not x.fund]
     breaches += [f"sector {k} {v:.1%} above the single sector limit {lim['single_sector']:.0%}"
-                 for k, v in sw.items() if k != "sector not known" and v > lim["single_sector"]]
+                 for k, v in sw.items() if k not in NO_SECTOR_LIMIT and v > lim["single_sector"]]
     if top5 > lim["top_five"]:
         breaches.append(f"top five {top5:.1%} above the top five limit {lim['top_five']:.0%}")
     parts.append(("Limit breached: " + "; ".join(breaches) + ".") if breaches else "No limit breached.")

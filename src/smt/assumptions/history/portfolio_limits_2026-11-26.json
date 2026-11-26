@@ -1,0 +1,12 @@
+{
+  "name": "portfolio_limits",
+  "version": "2026-11-26",
+  "label": "owner settings, starting values",
+  "account_alias": "main",
+  "limits": {
+    "single_stock": 0.10,
+    "single_sector": 0.30,
+    "top_five": 0.50
+  },
+  "note": "Concentration limits for the position size analyst. They describe how concentrated the owner is willing to be; they are not measured from data, so the owner sets and changes them. A new version keeps the old file in history/."
+}

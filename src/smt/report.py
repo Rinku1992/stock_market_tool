@@ -490,7 +490,7 @@ def build_portfolio_page(book, runs: list[tuple], version: str) -> PortfolioPage
         reps = {r.analyst_id: r for r in state["reports"]}
         ps, ov = reps.get("position_size"), reps.get("overlap")
         for sent in re.split(r"(?<=\.) (?=[A-Z])", ps.finding if ps else ""):
-            if sent.startswith(("Limit breached", "No limit breached")):
+            if sent.startswith(("Limit breached", "No limit breached", "Sector limit check covers")):
                 limits.append(sent)
             if sent.startswith("Not covered"):
                 not_covered.append(sent)

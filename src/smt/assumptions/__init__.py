@@ -113,3 +113,38 @@ def set_input(name: str, value: float, source: str, source_date: date, today: da
             shutil.copy2(path, target)
     path.write_text(json.dumps(doc, indent=2) + "\n")
     return doc
+
+
+# ---------------------------------------------------------------- owner sector map
+
+SECTOR_MAP = "sector_map"
+
+
+def load_sector_map(folder: Path = FOLDER) -> dict[str, str]:
+    """Owner-entered symbol -> sector (current version). Empty when nothing is entered."""
+    path = folder / f"{SECTOR_MAP}.json"
+    return dict(json.loads(path.read_text()).get("sectors", {})) if path.exists() else {}
+
+
+def set_sector(symbol: str, sector: str, today: date, folder: Path = FOLDER) -> dict:
+    """Write a new sector map version with one symbol set. The old file goes to history/."""
+    symbol, sector = symbol.strip().upper(), sector.strip()
+    if not symbol or not sector:
+        raise ValueError("symbol and sector are both required")
+    path = folder / f"{SECTOR_MAP}.json"
+    old = json.loads(path.read_text()) if path.exists() else {"name": SECTOR_MAP, "version": "empty", "sectors": {}}
+    hist = folder / "history"
+    hist.mkdir(parents=True, exist_ok=True)
+    taken = {old.get("version")} | {json.loads(p.read_text()).get("version")
+                                    for p in hist.glob(f"{SECTOR_MAP}_*.json")}
+    v, i = today.isoformat(), 1
+    while (v if i == 1 else f"{v}.{i}") in taken:
+        i += 1
+    doc = {**old, "version": v if i == 1 else f"{v}.{i}", "entered_on": today.isoformat(),
+           "sectors": {**old.get("sectors", {}), symbol: sector}}
+    if path.exists():
+        target = hist / f"{SECTOR_MAP}_{old.get('version', 'none')}.json"
+        if not target.exists():
+            shutil.copy2(path, target)
+    path.write_text(json.dumps(doc, indent=2) + "\n")
+    return doc
