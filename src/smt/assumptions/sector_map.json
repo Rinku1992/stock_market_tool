@@ -1,0 +1,7 @@
+{
+  "name": "sector_map",
+  "version": "empty",
+  "entered_on": null,
+  "note": "Owner-entered sector per symbol. Used before the stored index industry. Never guessed.",
+  "sectors": {}
+}

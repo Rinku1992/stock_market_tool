@@ -1,12 +1,15 @@
 {
   "name": "portfolio_limits",
-  "version": "2026-11-26",
+  "version": "2026-11-26.2",
   "label": "owner settings, starting values",
   "account_alias": "main",
   "limits": {
-    "single_stock": 0.10,
-    "single_sector": 0.30,
-    "top_five": 0.50
+    "single_stock": 0.1,
+    "single_sector": 0.3,
+    "top_five": 0.5
   },
-  "note": "Concentration limits for the position size analyst. They describe how concentrated the owner is willing to be; they are not measured from data, so the owner sets and changes them. A new version keeps the old file in history/."
+  "note": "Concentration limits for the position size analyst. They describe how concentrated the owner is willing to be; they are not measured from data, so the owner sets and changes them. A new version keeps the old file in history/. diversified_funds: owner list of symbols (such as index ETFs) that are funds; sector 'diversified fund', no single-stock limit, still counted in weights, risk share and the top five. NIFTYBEES confirmed by the owner as an index fund (26 Nov 2026).",
+  "diversified_funds": [
+    "NIFTYBEES"
+  ]
 }

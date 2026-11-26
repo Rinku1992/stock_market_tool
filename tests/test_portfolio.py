@@ -203,4 +203,71 @@ def test_portfolio_page_has_every_section_and_no_banned_words(tmp_path):
     assert "| AAA | 75.0% |" in md and "| CCC | not available | not available |" in md
     assert "Not covered (no stored price, left out of the maths): CCC." in md
     assert "Limit breached:" in md and "| Consumer | 75.0% |" in md
+    assert "Sector limit check covers 75.0% of the money; 25.0% has sector not known" in md
     assert not BANNED.search(md) and not BANNED.search(ht)
+
+
+# ---------------------------------------------------------------- funds and the owner sector map
+
+def settings_in(tmp_path, monkeypatch, funds=(), sectors=None):
+    import shutil
+    folder = tmp_path / "settings"
+    folder.mkdir()
+    st = pf.load_settings()
+    st["diversified_funds"] = list(funds)
+    (folder / "portfolio_limits.json").write_text(json.dumps(st))
+    (folder / "sector_map.json").write_text(json.dumps({"name": "sector_map", "version": "t", "sectors": sectors or {}}))
+    monkeypatch.setattr(pf, "SETTINGS", folder / "portfolio_limits.json")
+    return folder
+
+
+def test_shipped_fund_list_and_empty_sector_map():
+    from smt.assumptions import load_sector_map
+    assert pf.load_settings()["diversified_funds"] == ["NIFTYBEES"]
+    assert load_sector_map() == {}
+
+
+def test_fund_is_not_tested_against_the_single_stock_limit(tmp_path, monkeypatch):
+    settings_in(tmp_path, monkeypatch, funds=["BBB"])
+    lake = make_lake(tmp_path)
+    f = pf.position_size(ctx(lake, B_, "BBB")).finding
+    assert "BBB: weight 25.0% (rank 2 of 2); diversified fund, single-stock limit not applied." in f
+    assert "Sector diversified fund: 25.0%; no sector limit check." in f
+    assert "Top five holdings: 100.0% together" in f  # the fund still counts in the top five
+    assert "BBB 25.0% above the single stock limit" not in f and "AAA 75.0% above the single stock limit 10%" in f
+    assert ("Sector limit check covers 75.0% of the money; 0.0% has sector not known and 25.0% is in diversified "
+            "funds, which the check does not cover.") in f
+    a, b = ctx(lake, A_, "AAA"), ctx(lake, B_, "BBB")
+    pf.overlap(a), pf.overlap(b)
+    assert feat(a, "pf_risk_share") + feat(b, "pf_risk_share") == pytest.approx(1.0)  # still in the risk maths
+
+
+def test_owner_sector_map_comes_before_the_index_industry(tmp_path, monkeypatch):
+    settings_in(tmp_path, monkeypatch, sectors={"AAA": "Retail", "BBB": "Banks"})
+    lake = make_lake(tmp_path)
+    f = pf.position_size(ctx(lake, A_, "AAA")).finding
+    assert "Sector Retail: 75.0%" in f and "Consumer" not in f  # owner map beats the stored index industry
+    assert "Sector weights: Retail 75.0%, Banks 25.0%." in f
+    assert "Sector limit check covers 100.0% of the money; 0.0% has sector not known, which the check does not cover." in f
+
+
+def test_no_owner_sector_and_no_index_industry_is_sector_not_known(tmp_path, monkeypatch):
+    settings_in(tmp_path, monkeypatch)
+    lake = make_lake(tmp_path, industry=False)
+    f = pf.position_size(ctx(lake, A_, "AAA")).finding
+    assert "Sector sector not known: 100.0%; no sector limit check." in f
+    assert "Sector limit check covers 0.0% of the money; 100.0% has sector not known" in f
+
+
+def test_set_sector_writes_a_new_version_and_keeps_the_old(tmp_path):
+    from smt.assumptions import load_sector_map, set_sector
+    folder = tmp_path / "a"
+    folder.mkdir()
+    (folder / "sector_map.json").write_text(json.dumps({"name": "sector_map", "version": "empty", "sectors": {}}))
+    set_sector("nykaa", "Retail", date(2026, 11, 26), folder)
+    set_sector("ASHOKLEY", "Automobile", date(2026, 11, 26), folder)
+    assert load_sector_map(folder) == {"NYKAA": "Retail", "ASHOKLEY": "Automobile"}
+    assert sorted(p.name for p in (folder / "history").glob("*.json")) == ["sector_map_2026-11-26.json",
+                                                                          "sector_map_empty.json"]
+    with pytest.raises(ValueError):
+        set_sector("X", " ", date(2026, 11, 26), folder)
