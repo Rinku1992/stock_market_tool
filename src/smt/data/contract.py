@@ -262,8 +262,20 @@ CALLS = Dataset(
     enums=(("source_kind", CALL_SOURCE_KINDS), ("horizon", HORIZONS), ("direction", DIRECTIONS), ("call", VERDICT_CALLS)),
 )
 
+# Owner's written reason for holding a stock. Append-only: a new entry never overwrites an old one.
+THESES = Dataset(
+    name="theses",
+    version=1,
+    fields=(
+        _f("instrument_id", pa.string()),
+        _f("symbol", pa.string()),
+        _f("text", pa.string()),
+    ),
+    key=("instrument_id", "published_at"),
+)
+
 DATASETS: dict[str, Dataset] = {
     d.name: d
     for d in (INSTRUMENTS, PRICES_DAILY, CORPORATE_ACTIONS, FINANCIALS, SHAREHOLDING, INDEX_MEMBERS, HOLDINGS, DOCUMENTS, CALLS,
-              FILING_SEGMENTS, REPORT_FACTS)
+              FILING_SEGMENTS, REPORT_FACTS, THESES)
 }

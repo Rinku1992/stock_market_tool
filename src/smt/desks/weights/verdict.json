@@ -3,18 +3,47 @@
   "version": "2026-11-23",
   "source": "Scoring engine start: no desk view has been scored against outcomes yet, so every desk weight is 0 and the engine gives no call. Weights change only through a calibration run on desk views (not built yet); thresholds are fixed here before use (DECISIONS.md, 23 Nov 2026).",
   "weights": {
-    "equity_research": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "market_activity": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "market_news": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "industry_geo": {"short": 0.0, "mid": 0.0, "long": 0.0},
-    "event_catalyst": {"short": 0.0, "mid": 0.0, "long": 0.0}
+    "equity_research": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "market_activity": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "market_news": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "industry_geo": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "event_catalyst": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    },
+    "portfolio": {
+      "short": 0.0,
+      "mid": 0.0,
+      "long": 0.0
+    }
   },
-  "thresholds": {"min_score": 0.10, "min_confidence": 0.30},
+  "thresholds": {
+    "min_score": 0.1,
+    "min_confidence": 0.3
+  },
   "why": {
     "equity_research": "No measured edge: valuation analysts are facts only (views neutral); financial trend not scored.",
     "market_activity": "No measured edge: every market activity analyst has weight 0 at its desk (weights version 2026-11-13.2).",
     "market_news": "Desk not built.",
     "industry_geo": "Desk not built.",
-    "event_catalyst": "Desk not built."
+    "event_catalyst": "Desk not built.",
+    "portfolio": "Facts about your own holdings (size, overlap, gain, thesis); never a reason to call a stock."
   }
 }
