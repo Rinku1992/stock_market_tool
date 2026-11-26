@@ -2,6 +2,7 @@
 
     python -m smt.report TCS
     python -m smt.report TITAN --as-of 2026-11-23
+    python -m smt.report --portfolio            (one page for all holdings)
 
 Code only, no LLM, no tokens. No new maths: every number on the page is a feature stored by an analyst in
 this run, or text from a report of this run. Missing figures print "not available" (with the reason when an
@@ -79,6 +80,7 @@ class Page:
     set_aside: dict[str, str] = field(default_factory=dict)  # analyst id -> why (no valid source)
     grade_reasons: list[str] = field(default_factory=list)
     data: list[tuple[str, str, str, str]] = field(default_factory=list)  # freshness table: dataset, detail, status, reason
+    position: list[tuple[str, str]] = field(default_factory=list)  # portfolio desk findings, only when held
 
 
 # ---------------------------------------------------------------- building the page from one run
@@ -248,7 +250,11 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
 
     order = {u: i for i, u in enumerate(DESKS)}
     desks = []
+    position = [(r.analyst_id, r.finding) for r in state.get("reports", []) if r.unit == "portfolio"
+                and r.finding != "not held"]
     for d in sorted(state.get("desk_reports", []), key=lambda d: order.get(d.unit, len(order))):
+        if d.unit == "portfolio":
+            continue  # shown in "Your position" when held, else not at all
         desks.append({"unit": d.unit, "views": d.views, "notes": d.notes, "conflicts": d.conflicts,
                       "analysts": [r for r in state.get("reports", []) if r.unit == d.unit]})
 
@@ -278,7 +284,8 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
     return Page(state["symbol"], as_of, header, verdict, rows, desks, list(v.not_checked) or ["nothing listed"],
                 sources or ["none"], FOOTER.format(v.weights_version or "none"), notes, checks,
                 dict(rvw.set_aside) if rvw is not None else {}, list(v.grade_reasons),
-                [(r.dataset, r.detail, r.status, r.reason) for r in (state["grades"].table if state.get("grades") else [])])
+                [(r.dataset, r.detail, r.status, r.reason) for r in (state["grades"].table if state.get("grades") else [])],
+                position)
 
 
 # ---------------------------------------------------------------- rendering
@@ -290,23 +297,28 @@ def _views(views) -> str:
 
 
 def to_markdown(p: Page) -> str:
-    out = [f"# {p.symbol}: stock report, {p.as_of}", "", "## 1. Header", ""]
+    n = iter(range(1, 20))
+    out = [f"# {p.symbol}: stock report, {p.as_of}", "", f"## {next(n)}. Header", ""]
     for k, v in p.header:
         out.append(f"- **{k}:** {v}")
         if k == "Data grade":
             out += [f"  - {x}" for x in p.grade_reasons]
-    out += ["", "## 2. Verdict", ""]
+    out += ["", f"## {next(n)}. Verdict", ""]
     for h, head, reasons in p.verdict:
         out.append(f"**{h}:** {head}")
         out += [f"- {r}" for r in reasons]
         out.append("")
-    out += ["## 3. Checks", ""]
+    out += [f"## {next(n)}. Checks", ""]
     for title, key in CHECK_PARTS:
         items = p.checks.get(key, [])
         if key == "veto" and not items:
             items = ["no review veto"]
         out += [f"**{title}**", ""] + ([f"- {x}" for x in items] or ["- none"]) + [""]
-    out += ["## 4. Key numbers", ""]
+    if p.position:
+        out += [f"## {next(n)}. Your position", ""]
+        for aid, text in p.position:
+            out += [f"**{aid}:** {text}", ""]
+    out += [f"## {next(n)}. Key numbers", ""]
     for g in GROUPS:
         rows = [r for r in p.rows if r.group == g]
         out += [f"### {g}", ""]
@@ -317,7 +329,7 @@ def to_markdown(p: Page) -> str:
             out.append("None for this stock type.")
         out += [f"\n_{n}_" for n in p.notes.get(g, [])]
         out.append("")
-    out += ["## 5. Desks and analysts", ""]
+    out += [f"## {next(n)}. Desks and analysts", ""]
     for d in p.desks:
         out += [f"### Desk: {d['unit']}", "", f"Desk views: {_views(d['views'])}", ""] + [f"- {n}" for n in d["notes"]]
         out.append("")
@@ -326,14 +338,14 @@ def to_markdown(p: Page) -> str:
         for a in d["analysts"]:
             mark = f" ({NO_SOURCE}: {p.set_aside[a.analyst_id]}; views set aside)" if a.analyst_id in p.set_aside else ""
             out += [f"#### {a.analyst_id}{mark}", "", a.finding, "", f"Views: {_views(a.views)}", ""]
-    out += ["## 6. Not checked", ""] + [f"- {x}" for x in p.not_checked]
-    out += ["", "## 7. Data", ""]
+    out += [f"## {next(n)}. Not checked", ""] + [f"- {x}" for x in p.not_checked]
+    out += ["", f"## {next(n)}. Data", ""]
     if p.data:
         out += ["| Dataset | What is loaded | Status | Why |", "|---|---|---|---|"]
         out += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in p.data]
     else:
         out.append("No freshness table (no data lake).")
-    out += ["", "## 8. Sources", ""] + [f"- {x}" for x in p.sources]
+    out += ["", f"## {next(n)}. Sources", ""] + [f"- {x}" for x in p.sources]
     out += ["", "---", "", p.footer, ""]
     return "\n".join(out)
 
@@ -348,24 +360,28 @@ th{background:#26262a}td,th{border-color:#3a3a40}h2{border-color:#3a3a40}.muted{
 
 def to_html(p: Page) -> str:
     e = html.escape
+    n = iter(range(1, 20))
     out = ["<!doctype html><html lang='en'><head><meta charset='utf-8'>",
            "<meta name='viewport' content='width=device-width, initial-scale=1'>",
            f"<title>{e(p.symbol)} stock report {p.as_of}</title><style>{CSS}</style></head><body>",
-           f"<h1>{e(p.symbol)}: stock report, {p.as_of}</h1>", "<h2>1. Header</h2><table>"]
+           f"<h1>{e(p.symbol)}: stock report, {p.as_of}</h1>", f"<h2>{next(n)}. Header</h2><table>"]
     for k, v in p.header:
         extra = ("<ul>" + "".join(f"<li>{e(x)}</li>" for x in p.grade_reasons) + "</ul>") if k == "Data grade" else ""
         out.append(f"<tr><th>{e(k)}</th><td>{e(v)}{extra}</td></tr>")
-    out += ["</table>", "<h2>2. Verdict</h2>"]
+    out += ["</table>", f"<h2>{next(n)}. Verdict</h2>"]
     for h, head, reasons in p.verdict:
         out.append(f"<p class='call'>{e(h)}: {e(head)}</p><ul>" + "".join(f"<li>{e(r)}</li>" for r in reasons) + "</ul>")
-    out.append("<h2>3. Checks</h2>")
+    out.append(f"<h2>{next(n)}. Checks</h2>")
     for title, key in CHECK_PARTS:
         items = p.checks.get(key, [])
         if key == "veto" and not items:
             items = ["no review veto"]
         lis = "".join((NA_LI if x.startswith(("FAIL", "review veto")) else "<li>") + e(x) + "</li>" for x in items)
         out.append(f"<h3>{e(title)}</h3><ul>" + (lis or "<li>none</li>") + "</ul>")
-    out.append("<h2>4. Key numbers</h2>")
+    if p.position:
+        out.append(f"<h2>{next(n)}. Your position</h2>")
+        out += [f"<p><strong>{e(aid)}:</strong> {e(text)}</p>" for aid, text in p.position]
+    out.append(f"<h2>{next(n)}. Key numbers</h2>")
     for g in GROUPS:
         rows = [r for r in p.rows if r.group == g]
         out.append(f"<h3>{e(g)}</h3>")
@@ -378,7 +394,7 @@ def to_html(p: Page) -> str:
         else:
             out.append("<p class='muted'>None for this stock type.</p>")
         out += [f"<p class='muted'><em>{e(n)}</em></p>" for n in p.notes.get(g, [])]
-    out.append("<h2>5. Desks and analysts</h2>")
+    out.append(f"<h2>{next(n)}. Desks and analysts</h2>")
     for d in p.desks:
         out += [f"<h3>Desk: {e(d['unit'])}</h3>", f"<p>Desk views: {e(_views(d['views']))}</p>"]
         out += [f"<p class='muted'>{e(n)}</p>" for n in d["notes"]]
@@ -389,15 +405,15 @@ def to_html(p: Page) -> str:
             mark = f" ({NO_SOURCE}: {p.set_aside[a.analyst_id]}; views set aside)" if a.analyst_id in p.set_aside else ""
             out += [f"<h4>{e(a.analyst_id + mark)}</h4>", f"<p class='finding'>{e(a.finding)}</p>",
                     f"<p class='muted'>Views: {e(_views(a.views))}</p>"]
-    out += ["<h2>6. Not checked</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_checked] + ["</ul>"]
-    out.append("<h2>7. Data</h2>")
+    out += [f"<h2>{next(n)}. Not checked</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_checked] + ["</ul>"]
+    out.append(f"<h2>{next(n)}. Data</h2>")
     if p.data:
         out.append("<table><tr><th>Dataset</th><th>What is loaded</th><th>Status</th><th>Why</th></tr>" + "".join(
             f"<tr><td>{e(a)}</td><td>{e(b)}</td><td{' class=' + chr(39) + 'na' + chr(39) if c != 'fresh' else ''}>"
             f"{e(c)}</td><td>{e(d)}</td></tr>" for a, b, c, d in p.data) + "</table>")
     else:
         out.append("<p class='muted'>No freshness table (no data lake).</p>")
-    out += ["<h2>8. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
+    out += [f"<h2>{next(n)}. Sources</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.sources] + ["</ul>"]
     out += [f"<hr><p class='muted'>{e(p.footer)}</p></body></html>"]
     return "\n".join(out)
 
@@ -418,6 +434,140 @@ def write(p: Page, folder: Path = REPORTS_DIR) -> tuple[Path, Path, str]:
     pm.write_text(md)
     ph.write_text(ht)
     return pm, ph, md
+
+
+# ---------------------------------------------------------------- portfolio page
+
+@dataclass
+class PortfolioPage:
+    as_of: date
+    header: list[tuple[str, str]]
+    rows: list[list[str]]  # holding, weight, risk share, sector, gain, data grade, short, mid, long
+    sectors: list[tuple[str, str]]
+    risk: list[tuple[str, str]]
+    limits: list[str]
+    not_covered: list[str]
+    footer: str
+
+
+PF_COLS = ["Holding", "Weight", "Risk share", "Sector", "Gain", "Data grade", "Short", "Mid", "Long"]
+
+
+def build_portfolio_page(book, runs: list[tuple], version: str) -> PortfolioPage:
+    """runs: (holding, state, store) for every holding, one engine run each. Numbers come only from the features
+    and reports of those runs."""
+    def feat(store, iid, as_of, name, text=False):
+        got = store.get_feature_asof(iid, name, as_of)
+        return None if got is None else (got["text_value"] if text else got["value"])
+
+    as_of = runs[0][1]["as_of"] if runs else book.holdings_date
+    rows, level, weights_version = [], None, "none"
+    for h, state, store in runs:
+        v = state["verdict"]
+        weights_version = v.weights_version or weights_version
+        w, rs = feat(store, h.iid, as_of, "pf_weight"), feat(store, h.iid, as_of, "pf_risk_share")
+        g, sec = feat(store, h.iid, as_of, "pf_gain_pct"), feat(store, h.iid, as_of, "pf_sector", text=True)
+        grade = (f"{v.data_grade.value} (prices {v.price_grade.value if v.price_grade else NA}, fundamentals "
+                 f"{v.fundamentals_grade.value if v.fundamentals_grade else NA})")
+        calls = ([x.call.value.replace("_", " ") for x in v.horizons] if v.horizons
+                 else ["refused: data grade C"] * 3)
+        rows.append([h.symbol, FMT["pct"](w) if w is not None else NA, FMT["pct"](rs) if rs is not None else NA,
+                     sec or NA, FMT["spct"](g) if g is not None else NA, grade] + calls)
+        if level is None and w is not None:
+            level = (h, state, store)
+    sectors, risk, limits, not_covered = [], [], [], []
+    if level is not None:
+        h, state, store = level
+        names = dict.fromkeys(x.sector or "sector not known" for x in book.covered)
+        sectors = [(k, FMT["pct"](x)) for k in names if (x := feat(store, h.iid, as_of, f"pf_sector_w:{k}")) is not None]
+        sectors.sort(key=lambda kv: -float(kv[1].rstrip("%")))
+        for label, name, fmt in (("Portfolio volatility (a year)", "pf_port_vol", "pct"),
+                                 ("Nifty 50 volatility (a year)", "pf_nifty_vol", "pct"),
+                                 ("Portfolio beta to the Nifty 50", "pf_port_beta", "r2"),
+                                 ("Top five holdings together", "pf_top5_share", "pct")):
+            x = feat(store, h.iid, as_of, name)
+            risk.append((label, FMT[fmt](x) if x is not None else NA))
+        reps = {r.analyst_id: r for r in state["reports"]}
+        ps, ov = reps.get("position_size"), reps.get("overlap")
+        for sent in re.split(r"(?<=\.) (?=[A-Z])", ps.finding if ps else ""):
+            if sent.startswith(("Limit breached", "No limit breached")):
+                limits.append(sent)
+            if sent.startswith("Not covered"):
+                not_covered.append(sent)
+        if ov is not None and "not computed" in ov.finding.lower():
+            risk.append(("Note", ov.finding))
+    header = [("Account", book.account), ("As of", str(as_of)), ("Holdings date", str(book.holdings_date)),
+              ("Prices", (f"latest closes {min(x.close_date for x in book.covered)} to "
+                          f"{max(x.close_date for x in book.covered)}") if book.covered else NA),
+              ("Holdings", str(len(book.covered) + len(book.not_covered))), ("Covered by stored prices",
+                                                                            str(len(book.covered))),
+              ("Engine commit", version)]
+    return PortfolioPage(as_of, header, rows, sectors or [("all", NA)], risk or [("Risk", NA)],
+                         limits or [NA], not_covered or ["none"], FOOTER.format(weights_version))
+
+
+PF_SECTIONS = ["Header", "Holdings", "Sector weights", "Risk", "Limits", "Not covered"]
+
+
+def portfolio_markdown(p: PortfolioPage) -> str:
+    out = [f"# Portfolio report, {p.as_of}", "", "## 1. Header", ""] + [f"- **{k}:** {v}" for k, v in p.header]
+    out += ["", "## 2. Holdings", "", "| " + " | ".join(PF_COLS) + " |", "|" + "---|" * len(PF_COLS)]
+    out += ["| " + " | ".join(r) + " |" for r in p.rows]
+    out += ["", "## 3. Sector weights", "", "| Sector | Weight |", "|---|---|"] + [f"| {a} | {b} |" for a, b in p.sectors]
+    out += ["", "## 4. Risk", ""] + [f"- **{a}:** {b}" for a, b in p.risk]
+    out += ["", "## 5. Limits", "", "Limits are owner settings, starting values (single stock 10%, single sector 30%, "
+            "top five 50%)."] + [f"- {x}" for x in p.limits]
+    out += ["", "## 6. Not covered", ""] + [f"- {x}" for x in p.not_covered]
+    out += ["", "---", "", p.footer, ""]
+    return "\n".join(out)
+
+
+def portfolio_html(p: PortfolioPage) -> str:
+    e = html.escape
+    out = ["<!doctype html><html lang='en'><head><meta charset='utf-8'>",
+           "<meta name='viewport' content='width=device-width, initial-scale=1'>",
+           f"<title>Portfolio report {p.as_of}</title><style>{CSS}</style></head><body>",
+           f"<h1>Portfolio report, {p.as_of}</h1>", "<h2>1. Header</h2><table>"]
+    out += [f"<tr><th>{e(k)}</th><td>{e(v)}</td></tr>" for k, v in p.header] + ["</table>"]
+    out += ["<h2>2. Holdings</h2><table><tr>" + "".join(f"<th>{e(c)}</th>" for c in PF_COLS) + "</tr>"]
+    out += ["<tr>" + "".join(f"<td>{e(c)}</td>" for c in r) + "</tr>" for r in p.rows] + ["</table>"]
+    out += ["<h2>3. Sector weights</h2><table><tr><th>Sector</th><th>Weight</th></tr>"]
+    out += [f"<tr><td>{e(a)}</td><td>{e(b)}</td></tr>" for a, b in p.sectors] + ["</table>"]
+    out += ["<h2>4. Risk</h2><table>"] + [f"<tr><th>{e(a)}</th><td>{e(b)}</td></tr>" for a, b in p.risk] + ["</table>"]
+    out += ["<h2>5. Limits</h2><p class='muted'>Limits are owner settings, starting values (single stock 10%, single "
+            "sector 30%, top five 50%).</p><ul>"] + [f"<li>{e(x)}</li>" for x in p.limits] + ["</ul>"]
+    out += ["<h2>6. Not covered</h2><ul>"] + [f"<li>{e(x)}</li>" for x in p.not_covered] + ["</ul>"]
+    out += [f"<hr><p class='muted'>{e(p.footer)}</p></body></html>"]
+    return "\n".join(out)
+
+
+def write_portfolio(p: PortfolioPage, folder: Path = REPORTS_DIR) -> tuple[Path, Path, str]:
+    md, ht = portfolio_markdown(p), portfolio_html(p)
+    check_words(md)
+    check_words(ht)
+    folder.mkdir(parents=True, exist_ok=True)
+    pm, ph = folder / f"portfolio_{p.as_of}.md", folder / f"portfolio_{p.as_of}.html"
+    pm.write_text(md)
+    ph.write_text(ht)
+    return pm, ph, md
+
+
+def make_portfolio_report(as_of: date, lake_path: str = "data/lake", folder: Path = REPORTS_DIR):
+    from smt.analysts.portfolio import get_book
+    from smt.calls import code_version
+    from smt.data.lake import Lake
+    from smt.graph import run
+    from smt.store import FeatureStore
+
+    lake = Lake(lake_path)
+    book = get_book(lake, as_of)
+    if book is None:
+        raise SystemExit("no stored holdings for the account in the settings file")
+    runs = []
+    for h in book.covered + book.not_covered:
+        store = FeatureStore()
+        runs.append((h, run(h.symbol, as_of, store, lake=lake, instrument_id=h.iid), store))
+    return write_portfolio(build_portfolio_page(book, runs, code_version()), folder)
 
 
 # ---------------------------------------------------------------- command
@@ -443,11 +593,14 @@ def make_report(symbol: str, as_of: date, lake_path: str = "data/lake", folder: 
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="smt.report", description="Run the engine for one stock and write a report page.")
-    p.add_argument("symbol")
+    p.add_argument("symbol", nargs="?")
+    p.add_argument("--portfolio", action="store_true", help="one page for all holdings instead of one stock")
     p.add_argument("--as-of", type=date.fromisoformat, default=None, help="default: today (India time)")
     a = p.parse_args(argv)
     as_of = a.as_of or datetime.now(IST).date()
-    pm, ph, md = make_report(a.symbol, as_of)
+    if a.portfolio == bool(a.symbol):
+        p.error("give a SYMBOL or --portfolio")
+    pm, ph, md = make_portfolio_report(as_of) if a.portfolio else make_report(a.symbol, as_of)
     print(md)
     print(f"Wrote {pm} and {ph}")
 

@@ -98,7 +98,12 @@ def call_rows(state: dict, instrument_id: str, close: float, version: str, recor
     base = {"as_of": as_of, "instrument_id": instrument_id, "symbol": symbol, "close_price": close,
             "code_version": version, "published_at": recorded_at}
     rows = []
+    # the portfolio desk adds rows only for a stock that is held (its analysts say "not held" otherwise)
+    held = any(r.unit == "portfolio" and r.finding != "not held" for r in state.get("reports", []))
+    skip = set() if held else {"portfolio"}
     for r in state.get("reports", []):
+        if r.unit in skip:
+            continue
         js = r.model_dump_json()
         for v in r.views:
             rows.append({**base, "source_kind": "analyst", "source_id": r.analyst_id, "horizon": v.horizon.value,
@@ -106,6 +111,8 @@ def call_rows(state: dict, instrument_id: str, close: float, version: str, recor
                          "weights_version": None, "report_json": js})
     rv = state.get("review")
     for d in (rv.desk_reports if rv is not None else state.get("desk_reports", [])):  # desk views after review
+        if d.unit in skip:
+            continue
         js = d.model_dump_json()
         for v in d.views:
             rows.append({**base, "source_kind": "desk", "source_id": d.unit, "horizon": v.horizon.value,

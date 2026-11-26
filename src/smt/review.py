@@ -30,6 +30,7 @@ AMOUNT_TOL = 0.005
 RATIO_TOL = {"x": 0.05, "pct": 0.0005}  # 0.05x; 0.05 percentage points
 CRITICAL = ("market value", "12-month reported profit", "EV before leases")
 STUB = "not built yet"
+NOT_HELD = "not held"  # portfolio desk, for a stock not in the holdings
 NO_SOURCE = "no valid source"
 LENDER, REAL_ESTATE = "lender", "real_estate"
 
@@ -151,6 +152,17 @@ def _evidence_ok(lake, e, iid: str, as_of: date) -> str | None:
         n = lake.query(f"SELECT count(*) FROM {lake.read_sql('report_facts')} WHERE instrument_id = ? AND item = ?",
                        [parts[1], parts[2]])[0][0]
         return None if n else f"{e.ref}: no such report fact"
+    if parts[0] == "holdings" and len(parts) == 3:
+        if not lake.has("holdings"):
+            return f"{e.ref}: no holdings in the lake"
+        n = lake.query(f"SELECT count(*) FROM {lake.read_sql('holdings')} WHERE account = ? AND as_of = ?",
+                       [parts[1], date.fromisoformat(parts[2])])[0][0]
+        return None if n else f"{e.ref}: no such holdings date"
+    if parts[0] == "theses" and len(parts) == 2:
+        if not lake.has("theses"):
+            return f"{e.ref}: no theses in the lake"
+        n = lake.query(f"SELECT count(*) FROM {lake.read_sql('theses')} WHERE instrument_id = ?", [parts[1]])[0][0]
+        return None if n else f"{e.ref}: no thesis stored"
     return f"{e.ref}: source type not recognised"
 
 
@@ -165,7 +177,7 @@ def not_computed(r: AnalystReport) -> bool:
 def audit(lake, reports: list[AnalystReport], iid: str | None, as_of: date) -> tuple[list[Check], dict[str, str]]:
     checks, aside = [], {}
     for r in reports:
-        if r.finding.strip() == STUB:
+        if r.finding.strip() in (STUB, NOT_HELD):
             continue
         if not_computed(r):
             checks.append(Check(f"evidence: {r.analyst_id}", "not computed", f"{r.analyst_id}: {r.finding.strip()}"))
