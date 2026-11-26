@@ -737,3 +737,20 @@ Newest at the bottom. One entry per choice, with the reason.
   66.6% (above 50%); two holdings above 10%. Portfolio volatility 19.2% a year, Nifty 50 15.6%, beta 1.06.
   Sector not known for 83.5% of the money: most holdings (and the index ETF) have no industry in the stored
   Nifty 100 list, so the sector limit check covers little (not verified beyond that lookup).
+
+## Portfolio fixes: diversified funds, owner sector map, sector check coverage (26 Nov 2026)
+
+- **Diversified funds:** portfolio_limits.json (new version 2026-11-26.2; old kept in history/) has an owner list
+  "diversified_funds". A holding in it gets sector "diversified fund", is not tested against the single-stock
+  limit (printed "diversified fund, single-stock limit not applied"), and still counts in weights, risk share
+  and the top five. NIFTYBEES is the only entry (owner confirmed it is an index fund).
+- **Owner sector map:** src/smt/assumptions/sector_map.json, symbol -> sector, owner-entered with
+  `python -m smt.assumptions sector SYMBOL "Sector name"`; each entry writes a new version and keeps the old one in
+  history/. Shipped empty; never filled or guessed by code. Lookup order: diversified fund list, owner map,
+  stored index industry, "sector not known".
+- **Sector limit:** neither "diversified fund" nor "sector not known" is tested against the single-sector limit
+  (neither is a sector). position_size prints "Sector limit check covers X% of the money; Y% has sector not known
+  (and Z% is in diversified funds), which the check does not cover", and the portfolio page shows it next to the
+  limits.
+- **Real run, 26 Nov:** the sector check covers 16.5% of the money; 62.0% sector not known, 21.5% in the index fund.
+  Breaches: NYKAA 27.5% above the 10% single-stock limit; top five 66.6% above 50%.
