@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Data office part 1: freshness and grades", "Every run now gets a real data grade (prices and fundamentals) and a freshness table. Today TCS, TITAN, M&MFIN are B (prices 11 days old; 5 quarters loaded); a stock with no filings (ABB) is B with fundamentals C and still runs."],
-  next: ["Load more quarters and update prices, then the LLM reviewers", "8 quarters lift fundamentals to A; prices from 13 Nov hold the price grade at B. Open: kill criteria (sentinel), LLM reviewers."],
+  now: ["Portfolio desk built (facts only)", "python -m smt.report --portfolio: 21 holdings, all covered. Top five hold 66.6% (limit 50%); two single holdings above 10%. Portfolio volatility 19.2% a year against the Nifty 50's 15.6%, beta 1.06. Sector not known for 83.5% (most holdings are outside the stored index list)."],
+  next: ["Industry for every holding, then trade history", "Sector weights need an industry for holdings outside the Nifty 100 list; holding period and long-term date need purchase dates. Also: write a thesis for each holding (python -m smt.thesis set)."],
   you: ["Record each trading day, plus one bank file; G-sec yield every 45 days", "Keep the G-sec input fresh (python -m smt.assumptions set gsec_10y ...); it is flagged stale after 45 days. After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["26 Nov", "Portfolio and position desk built, facts only: position size against your limits, risk share and overlap, holding context, thesis store. Portfolio page added. Weight 0 in the verdict; call rows only for held stocks. Account alias only, never the client id."],
   ["24 Nov", "Data office part 1 built: freshness clerk and coverage grader replace the placeholder grade. Only a price grade C refuses; a desk whose data is grade C blocks its call. 'Not computed' analysts are no longer listed as fails. The 115 stocks recorded on 13 Nov would all still be recorded."],
   ["24 Nov", "Independent review (code): evidence auditor (no valid source = views set aside), number re-checker on its own code path (0.5%; critical fails veto the verdict), consistency between analysts. financial_trend now uses the valuation cash definition and shows net debt before and with leases and gold on loan."],
   ["23 Nov", "Stock report built: one command, one page per stock (Markdown and self-contained HTML, not in git). Numbers only from stored features of that run; analysts' labels kept; banned words checked before writing. First pages: TCS, TITAN, M&MFIN."],
@@ -270,10 +271,10 @@ const UNITS = [
     ["Supply", "B", "Lock-in expiries, promoter sales, fund raises."],
     ["Index flow", "C", "Likely index entry or exit, and the forced buying or selling."] ] },
   { n: "6", t: "Portfolio and position desk", q: "For stocks you own on Zerodha: hold, add, trim or exit.", a: [
-    ["Holding context", "C", "Buy price, holding period, date it turns long-term for tax."],
-    ["Overlap", "C", "How much this stock moves with your other holdings."],
-    ["Position size", "C", "Checks if it is too big a share of your portfolio."],
-    ["Thesis tracker", "B", "Stores why you bought and checks if that still holds."] ] },
+    ["Holding context", "C", "Purchase price, money invested, market value, gain. Built; holding period and long-term date not available until trade history (purchase dates) is stored.", 2],
+    ["Overlap", "C", "How much this stock moves with your other holdings. Built: portfolio volatility and beta, each holding's risk share next to its money share, correlation with the rest.", 2],
+    ["Position size", "C", "Checks if it is too big a share of your portfolio. Built: weight, rank, top five, sector weights against your limits (owner settings: 10% stock, 30% sector, 50% top five).", 2],
+    ["Thesis tracker", "B", "Stores why you own it and checks if that still holds. Code part built: python -m smt.thesis set / show (kept, never overwritten). The check against facts needs the LLM (later).", 2] ] },
   { n: "7", t: "Independent review", q: "Challenges every claim before a verdict is allowed.", veto: true, a: [
     ["Evidence auditor", "B", "Drops any claim that has no source. Code part built: every analyst report needs evidence that exists in the lake, dated on or before the run; a report that fails has its views set aside.", 2],
     ["Number re-checker", "C", "Recomputes key figures from raw data. Built: market value, 12-month revenue and profit, P/E, P/B, ROE, EBIT, borrowings, cash, EV, by a separate code path, within 0.5%; a critical fail vetoes the verdict. Also checks that two analysts never print different numbers under the same label.", 2],

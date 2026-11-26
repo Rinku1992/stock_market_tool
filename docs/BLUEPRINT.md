@@ -118,7 +118,7 @@ sentinel (C), depth controller (C)
 | 3b. Scoring engine | Turns analyst views into a verdict, using weights that backtests support | First real verdict | Built 23 Nov 2026 (`smt.scoring`, weights file desks/weights/verdict.json, all desk weights 0, thresholds score 0.10 and confidence 0.30). Gives no call, with reasons, until desk views are scored on outcomes. Open: review veto, data grade, kill criteria |
 | 4. LLM desks | News, credibility, extraction, forensic reading, input guard | Every claim carries a quote | |
 | 5. Review + verdict | Review unit, three horizon committees | One full verdict page | Code part of the review built 24 Nov 2026 (`smt.review`): evidence auditor, number re-checker, consistency check, review veto in scoring; Checks section on the stock page. LLM reviewers and committees not built |
-| 6. Zerodha | Holdings pull, portfolio desk, sentinel | Holdings show hold/add/trim/exit | |
+| 6. Zerodha | Holdings pull, portfolio desk, sentinel | Holdings show hold/add/trim/exit | Holdings pull built (phase 1b). Portfolio desk built 26 Nov 2026, facts only (no hold/add/trim/exit): position size, overlap and risk share, holding context, thesis store (code part); `python -m smt.report --portfolio`. Sentinel not built |
 | 7. App | Web UI | Type a name, get the report | First step built 23 Nov 2026: `python -m smt.report SYMBOL` writes one page per stock (reports/, Markdown and HTML, not in git) from one engine run. No web UI yet |
 
 ## Defaults in use

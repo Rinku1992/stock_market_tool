@@ -697,3 +697,43 @@ Newest at the bottom. One entry per choice, with the reason.
   and refused, so the test passes an explicit grade, as it is about routing.
 - **First run, 24 Nov 2026:** TCS, TITAN: B (prices B, 11 days old; fundamentals B, 5 quarters). M&MFIN: B
   (also no verified annual report facts). ABB (no filings): B (prices B, fundamentals C), runs, not refused.
+
+## Portfolio and position desk (26 Nov 2026)
+
+- **What:** src/smt/analysts/portfolio.py, desk "portfolio" with four analysts: position_size, overlap,
+  holding_context, thesis_tracker. Code only, facts only: every view neutral. Weight 0 in verdict.json, so it
+  cannot change a call or a score. For a stock that is not held, each analyst says "not held" and nothing else;
+  the evidence auditor skips those reports, and the call logger adds portfolio rows only for held stocks
+  (stored history unchanged).
+- **Inputs:** latest stored holdings on or before the run date for the account alias in
+  src/smt/assumptions/portfolio_limits.json (quantity, average price, holdings date) and stored daily closes.
+  Market value = quantity x latest close. A holding with no stored price is "not covered": listed and left out
+  of the maths. The book is built once per run date and reused.
+- **Risk share formula:** daily returns over the last 250 trading days on dates common to all covered holdings
+  (fewer than 120: not computed); sample covariance matrix S; weights w by market value. Portfolio variance
+  w'Sw, volatility sqrt(252 x w'Sw). Risk share of stock i = w_i x (S w)_i / (w'Sw); the shares add up to 100%.
+  Correlation with the rest = correlation of the stock's returns with the other holdings' returns combined at
+  their rescaled weights. Portfolio beta = cov(portfolio, Nifty 50) / var(Nifty 50) on the same dates.
+- **Limits are owner settings:** single stock 10%, single sector 30%, top five 50%, labelled "owner settings,
+  starting values". They state how concentrated the owner is willing to be; no data can measure that, so the
+  owner sets them (versioned file). The page says "above the X% limit" or "inside the limit" and never tells
+  anyone to trim. Sector = industry from the stored index member list; none stored: "sector not known" (no
+  sector limit check for it).
+- **Why no purchase dates:** stored holdings carry quantity and average price only, no trade history, so the
+  holding period and the long-term date are "not available: stored holdings carry no purchase dates (needs
+  trade history)". Not estimated; no tax amounts. Wording: "purchase price" and "purchase dates", because
+  "buy" is a banned word on pages (the first real TITAN page was stopped by the check).
+- **Thesis store:** dataset "theses" through an adapter (`python -m smt.thesis set / show`), append-only. The
+  analyst prints the latest thesis and its date, or "no thesis recorded". Checking it against facts needs the
+  LLM reviewers (later).
+- **Privacy:** the broker client id is never printed or stored; holdings are read by account alias only.
+  Holdings, theses and reports stay in data/ and reports/ (not in git). Tests use made-up holdings only.
+- **Pages:** stock page gets "Your position" after "Checks" only when the stock is held (section numbers follow
+  on; the portfolio desk is not repeated under desks). `python -m smt.report --portfolio` runs the engine
+  once per holding and writes reports/portfolio_<date>.md and .html: holdings table (weight, risk share,
+  sector, gain %, data grade, verdict per horizon), sector weights, risk, limits, not covered. Numbers only
+  from the runs' stored features and the position_size / overlap text; banned words checked.
+- **First real run, 26 Nov 2026 (holdings of 12 Nov, closes of 13 Nov):** 21 holdings, 21 covered. Top five
+  66.6% (above 50%); two holdings above 10%. Portfolio volatility 19.2% a year, Nifty 50 15.6%, beta 1.06.
+  Sector not known for 83.5% of the money: most holdings (and the index ETF) have no industry in the stored
+  Nifty 100 list, so the sector limit check covers little (not verified beyond that lookup).
