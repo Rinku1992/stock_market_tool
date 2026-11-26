@@ -51,6 +51,7 @@ FMT = {
     "x": lambda v: f"{v:.1f}x",
     "r2": lambda v: f"{v:.2f}",
     "pts": lambda v: f"{v * 100:+.1f} points",
+    "days": lambda v: f"{v:.0f} days",
 }
 
 
@@ -159,6 +160,17 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
         add("Cash", "Free cash flow", "val_fcf_ttm", "cr", cf_how or "", "cash flow")
         add("Cash", "Cash conversion (operating cash / profit)", "val_cash_conversion", "r2", cf_how or "", "cash flow")
         add("Cash", "Accruals (share of total assets)", "val_accruals", "spct", cf_how or "", "cash flow")
+    eq = f"12 months to {q_end}" if q_end else ""
+    add("Cash", "Exceptional items / profit before tax", "eq_exceptional_share", "spct", eq, "exceptional items:")
+    add("Cash", "Other income / profit before tax", "eq_other_income_share", "pct", eq, "other income:")
+    add("Cash", "Effective tax rate (standard company rate about 25%, not verified)", "eq_tax_rate", "pct", eq,
+        "tax rate:")
+    if not lender:
+        add("Cash", "Receivable days", "eq_receivable_days", "days", "on 12-month revenue", "receivable days")
+        add("Cash", "Inventory days (on revenue, not cost of goods)", "eq_inventory_days", "days", "on 12-month revenue",
+            "inventory days")
+        add("Cash", "Payable days (on revenue, not cost of goods)", "eq_payable_days", "days", "on 12-month revenue",
+            "payable days")
     # 3. returns
     if lender:
         add("Returns", "ROE", "val_roe", "pct", m12, "ROE")
@@ -275,7 +287,7 @@ def build_page(state: dict, store, version: str, facts: list[dict] | None = None
     if rvw is not None:
         checks["results"] = [f"{c.status.upper()}: {c.text}" for c in rvw.lines()]
     for r in state.get("reports", []):
-        for m in re.finditer(r"Check: [^.]*\.", r.finding):
+        for m in re.finditer(r"Check: .*?\.(?= [A-Z]|$)", r.finding):  # to the end of the sentence
             checks["analysts"].append(f"{r.analyst_id}: {m.group(0)}")
     flag = re.compile(r"stale|more than \d+ days|not loaded|not filed|missing|not found|no price", re.I)
     for g in dict.fromkeys(g for r in state.get("reports", []) for g in r.could_not_check):

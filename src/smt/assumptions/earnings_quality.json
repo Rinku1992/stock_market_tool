@@ -1,0 +1,16 @@
+{
+  "name": "earnings_quality",
+  "version": "2026-11-26",
+  "label": "starting values, judgement not measured",
+  "limits": {
+    "exceptional_share": 0.10,
+    "other_income_share": 0.25,
+    "tax_rate_low": 0.18,
+    "tax_rate_high": 0.32,
+    "working_capital_gap": 0.10
+  },
+  "context": {
+    "standard_tax_rate": 0.25
+  },
+  "note": "Limits for the earnings quality analyst's 'Check:' lines. Judgement, not measured from outcomes; the owner may change them (new version, old kept in history/)."
+}
