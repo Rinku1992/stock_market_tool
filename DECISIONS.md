@@ -754,3 +754,32 @@ Newest at the bottom. One entry per choice, with the reason.
   limits.
 - **Real run, 26 Nov:** the sector check covers 16.5% of the money; 62.0% sector not known, 21.5% in the index fund.
   Breaches: NYKAA 27.5% above the 10% single-stock limit; top five 66.6% above 50%.
+
+## Earnings quality: the code part of "Forensic accounts" (26 Nov 2026)
+
+- **Analyst:** earnings_quality on the equity research desk (src/smt/analysts/earnings_quality.py). Facts and
+  "Check:" lines only; views neutral. Uses the financials loader. Limits in
+  src/smt/assumptions/earnings_quality.json, labelled "starting values, judgement not measured": exceptional items
+  above 10% of profit before tax either way; other income above 25%; effective tax rate below 18% or above 32%;
+  receivables or inventories growing more than 10 points faster than 12-month revenue. A value exactly at a limit
+  is inside it.
+- **Items:** for the 12 months to the latest quarter, and the 12 months a year earlier when 8 quarters are loaded:
+  exceptional items / profit before tax, other income / profit before tax, tax / profit before tax (the standard
+  company rate about 25% printed as context, not verified). Non-lenders: receivable, inventory and payable days =
+  average of opening and closing balance / 12-month revenue x 365 (inventory and payable days labelled "on revenue,
+  not cost of goods", since cost of goods is not in the loaded filings); cash cycle; a year earlier when the
+  balance sheets one and two years back and revenue a year back exist, else "one year only".
+- **Jeweller rule:** a stock with any verified gold on loan row gets no payable days and no cash cycle: "not computed:
+  trade payables hold gold on loan in some filings" (TITAN's September 2025 XBRL put it there).
+- **Not repeated:** accruals, cash conversion and profit against revenue growth stay with earnings_power and
+  financial_trend; the stock page's Checks section already gathers every "Check:" line. That page now reads a Check
+  sentence to its end, so decimals ("17.5%") no longer cut it short.
+- **Not done (printed):** capitalised costs, depreciation changes, related-party deals, auditor remarks, revenue
+  recognition: they need the annual report notes (later).
+- **Lenders:** items 1 to 3 only. Real estate: all, with a lumpy-revenue note. Missing input: "not computed" with the
+  reason, never zero. Features: eq_exceptional_share, eq_other_income_share, eq_tax_rate, eq_receivable_days,
+  eq_inventory_days, eq_payable_days; shown under "Cash" on the stock page.
+- **First run, 26 Nov 2026 (not verified):** TCS: exceptional items -5.9% of profit before tax, other income 6.9%,
+  tax rate 24.9%, receivable days 85, inventory days 0, payable days 19, cash cycle 66 days. TITAN: -1.1%, 14.1%,
+  23.8%, receivable days 6, inventory days 171, payable days and cash cycle not computed (gold on loan). M&MFIN:
+  -2.8%, 1.4%, 25.8%. No Check line for any of them. Re-checker and consistency: all pass, no fail.

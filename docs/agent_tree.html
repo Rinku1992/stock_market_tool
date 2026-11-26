@@ -175,11 +175,12 @@ h1 { font: 600 30px/1.2 var(--font-display); margin: 0 0 6px; text-wrap: balance
 <script>
 // Status codes on an analyst: 1 built, 2 testing, 3 next. Left out: planned.
 const PROGRESS = {
-  now: ["Portfolio desk built (facts only)", "python -m smt.report --portfolio: 21 holdings, all covered. Top five hold 66.6% (limit 50%); two single holdings above 10%. Portfolio volatility 19.2% a year against the Nifty 50's 15.6%, beta 1.06. Sector not known for 83.5% (most holdings are outside the stored index list)."],
-  next: ["Industry for every holding, then trade history", "Sector weights need an industry for holdings outside the Nifty 100 list; holding period and long-term date need purchase dates. Also: write a thesis for each holding (python -m smt.thesis set)."],
+  now: ["Earnings quality built (forensic accounts, code part)", "Exceptional items, other income and tax rate against profit before tax; receivable, inventory and payable days. TCS, TITAN, M&MFIN: no Check line today. TITAN payable days not computed (gold on loan sits in trade payables in some filings)."],
+  next: ["Load 8 quarters, then the annual report notes", "A year-earlier comparison needs 8 quarters (5 loaded). Related-party deals and auditor remarks need the annual report notes (LLM extraction with quotes)."],
   you: ["Record each trading day, plus one bank file; G-sec yield every 45 days", "Keep the G-sec input fresh (python -m smt.assumptions set gsec_10y ...); it is flagged stale after 45 days. After 15:30: python -m smt.kite_cli login, then update-prices, then python -m smt.record --holdings --index IDX:NIFTY100. Also upload one bank results XBRL (for example HDFCBANK)."]
 };
 const LOG = [
+  ["26 Nov", "Earnings quality analyst built (code part of forensic accounts): exceptional items, other income, tax rate, working capital days; Check lines at limits labelled starting values. Jeweller rule: no payable days when gold on loan is in the books. Not done list printed."],
   ["26 Nov", "Portfolio fixes: your diversified fund list (NIFTYBEES: no single-stock limit, still in weights and risk), your own sector map (python -m smt.assumptions sector SYMBOL \"Sector\"; empty), and the page now says how much money the sector check covers (16.5% today)."],
   ["26 Nov", "Portfolio and position desk built, facts only: position size against your limits, risk share and overlap, holding context, thesis store. Portfolio page added. Weight 0 in the verdict; call rows only for held stocks. Account alias only, never the client id."],
   ["24 Nov", "Data office part 1 built: freshness clerk and coverage grader replace the placeholder grade. Only a price grade C refuses; a desk whose data is grade C blocks its call. 'Not computed' analysts are no longer listed as fails. The 115 stocks recorded on 13 Nov would all still be recorded."],
@@ -238,7 +239,7 @@ const UNITS = [
   { n: "2", t: "Equity research", q: "Is the business good, and is the price fair?", a: [
     ["Business model", "L", "How it earns, segment mix, customer concentration."],
     ["Financial trend", "C", "Margins, growth, debt and cash conversion from NSE results filings. Facts only until enough history is loaded.", 1],
-    ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes."],
+    ["Forensic accounts", "B", "Profit vs cash gap, related-party deals, auditor changes. Code part built (earnings quality): exceptional items and other income against profit before tax, effective tax rate, working capital days, with Check lines at your limits. Related-party deals, auditor remarks and other notes need the annual report (later).", 2],
     ["Management say-do", "B", "Past promises on earnings calls versus what was delivered."],
     ["Capital allocation", "B", "Dilution, buybacks, acquisitions and returns on capex."],
     ["Accounting adjustments", "B", "Cleans one-off items, leases and R&D before valuing (valuation stage B). Built: lease, R&D and ESOP figures from annual reports (LLM quotes, code checks, owner review); leases added to EV and invested capital; gold on loan as debt for jewellers (exact date); R&D capitalised (rough) with a materiality line. One-off items still to come.", 2],
