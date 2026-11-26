@@ -132,7 +132,8 @@ def test_position_size_holding_context_and_not_covered(tmp_path):
     assert feat(c, "pf_weight") == pytest.approx(0.75)
     h = pf.holding_context(c).finding
     assert "money invested Rs 8,000" in h and "Market value Rs 12,000" in h and "gain Rs 4,000 (+50.0%)" in h
-    assert "not available: stored holdings carry no buy dates (needs trade history)" in h
+    assert "not available: stored holdings carry no purchase dates (needs trade history)" in h
+    assert "average purchase price Rs 80.00" in h and not BANNED.search(h)
     b = ctx(lake, B_, "BBB")
     pf.position_size(b)
     assert "Sector sector not known: 25.0%; no sector limit check." in pf.position_size(b).finding

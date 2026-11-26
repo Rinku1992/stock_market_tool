@@ -35,7 +35,7 @@ NOT_HELD = "not held"
 SETTINGS = Path(__file__).resolve().parents[1] / "assumptions" / "portfolio_limits.json"
 BENCHMARK = "IDX:NIFTY50"
 WINDOW, MIN_DAYS, YEAR = 250, 120, 252
-NO_BUY_DATES = "not available: stored holdings carry no buy dates (needs trade history)"
+NO_BUY_DATES = "not available: stored holdings carry no purchase dates (needs trade history)"
 LATER = "Checking the thesis against the facts is for later (needs the LLM reviewers)."
 
 
@@ -363,7 +363,7 @@ def holding_context(ctx: AnalystContext) -> AnalystReport:
     if out:
         return out
     invested = h.qty * h.avg
-    s = (f"{h.symbol}: quantity {h.qty:,.0f}, average buy price Rs {h.avg:,.2f}, money invested Rs {invested:,.0f} "
+    s = (f"{h.symbol}: quantity {h.qty:,.0f}, average purchase price Rs {h.avg:,.2f}, money invested Rs {invested:,.0f} "
          f"(holdings of {book.holdings_date}).")
     feats = {"pf_invested": invested}
     if h.value is not None:
